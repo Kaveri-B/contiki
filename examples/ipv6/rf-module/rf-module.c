@@ -67,9 +67,10 @@
 #define SEND_TIME		(random_rand() % (SEND_INTERVAL))
 #define MAX_PAYLOAD_LEN		30
 
-NodeType_t g_node_type = NODE_6LBR;
-RPL_MOP_Type_t g_RPL_MOP_type = RPL_MOP_TYPE_NON_STORING;
-unsigned char g_FAN_compliant = 0;
+extern NodeType_t g_node_type;
+extern RPL_MOP_Type_t g_RPL_MOP_type;
+extern unsigned char g_FAN_compliant;
+
 
 static struct uip_udp_conn *client_conn;
 static uip_ipaddr_t server_ipaddr;

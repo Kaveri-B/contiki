@@ -138,6 +138,12 @@ static struct cooja_mt_thread rtimer_thread;
 static struct cooja_mt_thread process_run_thread;
 
 /*---------------------------------------------------------------------------*/
+#include "RF_Module_API_Handler.h"
+NodeType_t g_node_type = NODE_6LBR;
+RPL_MOP_Type_t g_RPL_MOP_type = RPL_MOP_TYPE_NON_STORING;
+unsigned char g_FAN_compliant = 0;
+/*---------------------------------------------------------------------------*/
+
 #if NETSTACK_CONF_WITH_IPV4
 static void
 set_gateway(void)
