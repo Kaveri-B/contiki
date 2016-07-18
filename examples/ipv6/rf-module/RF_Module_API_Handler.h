@@ -1,0 +1,28 @@
+
+#ifndef __RF_MODULE_API_HANDLER_H__
+#define __RF_MODULE_API_HANDLER_H__
+
+
+#define RFMODULE_FRAME_SYNC_WORD_LENGTH           2
+#define RFMODULE_FRAME_LENGTH_FEILD_LENGTH        2
+#define RFMODULE_FRAME_HEADER_LENGTH              (RFMODULE_FRAME_SYNC_WORD_LENGTH + RFMODULE_FRAME_LENGTH_FEILD_LENGTH)
+#define RFMODULE_FRAME_CRC_LENGTH                 1
+#define RFMODULE_FRAME_CMD_POS                    RFMODULE_FRAME_HEADER_LENGTH
+
+
+typedef enum NodeType_tag {
+  NODE_6LBR,
+  NODE_6LR,
+  NODE_6LN,
+}NodeType_t;
+
+/* DAG Mode of Operation */
+typedef enum RPL_MOP_Type_tag {
+  RPL_MOP_TYPE_NO_DOWNWARD_ROUTES,      
+  RPL_MOP_TYPE_NON_STORING,             
+  RPL_MOP_TYPE_STORING_NO_MULTICAST,    
+  RPL_MOP_TYPE_STORING_MULTICAST,       
+}RPL_MOP_Type_t;
+
+extern unsigned char g_FAN_compliant;
+#endif //__RF_MODULE_API_HANDLER_H__

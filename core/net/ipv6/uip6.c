@@ -85,6 +85,7 @@
 #endif
 
 #include <string.h>
+#include "RF_Module_API_Handler.h"
 
 /*---------------------------------------------------------------------------*/
 /* For Debug, logging, statistics                                            */
@@ -104,7 +105,9 @@ void uip_log(char *msg);
 #if UIP_STATISTICS == 1
 struct uip_stats uip_stat;
 #endif /* UIP_STATISTICS == 1 */
+/*---------------------------------------------------------------------------*/
 
+extern RPL_MOP_Type_t g_RPL_MOP_type;
 
 /*---------------------------------------------------------------------------*/
 /**
@@ -1370,8 +1373,10 @@ uip_process(uint8_t flag)
           PRINTF("Processing Routing header\n");
           if(UIP_ROUTING_BUF->seg_left > 0) {
 #if UIP_CONF_IPV6_RPL && RPL_WITH_NON_STORING
-            if(rpl_process_srh_header()) {
-              goto send; /* Proceed to forwarding */
+	    if(g_RPL_MOP_type == RPL_MOP_TYPE_NON_STORING){
+              if(rpl_process_srh_header()) {
+                goto send; /* Proceed to forwarding */
+              }
             }
 #endif /* UIP_CONF_IPV6_RPL && RPL_WITH_NON_STORING */
             uip_icmp6_error_output(ICMP6_PARAM_PROB, ICMP6_PARAMPROB_HEADER, UIP_IPH_LEN + uip_ext_len + 2);

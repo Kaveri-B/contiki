@@ -230,22 +230,26 @@
 #define RPL_WITH_NON_STORING (RPL_MOP_DEFAULT == RPL_MOP_NON_STORING)
 #endif /* RPL_CONF_WITH_NON_STORING */
 
-#if RPL_WITH_STORING && (UIP_DS6_ROUTE_NB == 0)
-#error "RPL with storing mode included but #routes == 0. Set UIP_CONF_MAX_ROUTES accordingly."
-#if !RPL_WITH_NON_STORING && (RPL_NS_LINK_NUM > 0)
-#error "You might also want to set RPL_NS_CONF_LINK_NUM to 0."
-#endif
-#endif
+//#if RPL_WITH_STORING && (UIP_DS6_ROUTE_NB == 0)
+//#error "RPL with storing mode included but #routes == 0. Set UIP_CONF_MAX_ROUTES accordingly."
+//#if !RPL_WITH_NON_STORING && (RPL_NS_LINK_NUM > 0)
+//#error "You might also want to set RPL_NS_CONF_LINK_NUM to 0."
+//#endif
+//#endif
 
 #if RPL_WITH_NON_STORING && (RPL_NS_LINK_NUM == 0)
 #error "RPL with non-storing mode included but #links == 0. Set RPL_NS_CONF_LINK_NUM accordingly."
-#if !RPL_WITH_STORING && (UIP_DS6_ROUTE_NB > 0)
-#error "You might also want to set UIP_CONF_MAX_ROUTES to 0."
-#endif
+//#if !RPL_WITH_STORING && (UIP_DS6_ROUTE_NB > 0)
+//#error "You might also want to set UIP_CONF_MAX_ROUTES to 0."
+//#endif
 #endif
 
-#define RPL_IS_STORING(instance) (RPL_WITH_STORING && ((instance) != NULL) && ((instance)->mop > RPL_MOP_NON_STORING))
-#define RPL_IS_NON_STORING(instance) (RPL_WITH_NON_STORING && ((instance) != NULL) && ((instance)->mop == RPL_MOP_NON_STORING))
+/*---------------------------------------------------------------------------*/
+#include "RF_Module_API_Handler.h"
+extern RPL_MOP_Type_t g_RPL_MOP_type;
+/*---------------------------------------------------------------------------*/
+#define RPL_IS_STORING(instance) ( (g_RPL_MOP_type > RPL_MOP_NON_STORING) && ((instance) != NULL) && ((instance)->mop > RPL_MOP_NON_STORING))
+#define RPL_IS_NON_STORING(instance) ((g_RPL_MOP_type == RPL_MOP_NON_STORING) && ((instance) != NULL) && ((instance)->mop == RPL_MOP_NON_STORING))
 
 /* Emit a pre-processor error if the user configured multicast with bad MOP */
 #if RPL_WITH_MULTICAST && (RPL_MOP_DEFAULT != RPL_MOP_STORING_MULTICAST)

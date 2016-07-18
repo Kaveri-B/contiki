@@ -59,9 +59,13 @@
 #include <limits.h>
 #include <string.h>
 
+//@kaveri-non-storing
 #define DEBUG DEBUG_NONE
+//#define DEBUG DEBUG_FULL
 
 #include "net/ip/uip-debug.h"
+
+#include "RF_Module_API_Handler.h"
 
 /*---------------------------------------------------------------------------*/
 #define RPL_DIO_GROUNDED                 0x80
@@ -72,6 +76,10 @@
 #define UIP_IP_BUF       ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 #define UIP_ICMP_BUF     ((struct uip_icmp_hdr *)&uip_buf[uip_l2_l3_hdr_len])
 #define UIP_ICMP_PAYLOAD ((unsigned char *)&uip_buf[uip_l2_l3_icmp_hdr_len])
+/*---------------------------------------------------------------------------*/
+
+extern NodeType_t g_node_type;
+
 /*---------------------------------------------------------------------------*/
 static void dis_input(void);
 static void dio_input(void);
@@ -120,7 +128,7 @@ find_route_entry_by_dao_ack(uint8_t seq)
 }
 #endif /* RPL_WITH_DAO_ACK */
 
-#if RPL_WITH_STORING
+//#if RPL_WITH_STORING
 /* prepare for forwarding of DAO */
 static uint8_t
 prepare_for_dao_fwd(uint8_t sequence, uip_ds6_route_t *rep)
@@ -134,7 +142,7 @@ prepare_for_dao_fwd(uint8_t sequence, uip_ds6_route_t *rep)
   RPL_ROUTE_SET_DAO_PENDING(rep);
   return dao_sequence;
 }
-#endif /* RPL_WITH_STORING */
+//#endif /* RPL_WITH_STORING */
 /*---------------------------------------------------------------------------*/
 static int
 get_global_addr(uip_ipaddr_t *addr)
@@ -226,31 +234,44 @@ dis_input(void)
   for(instance = &instance_table[0], end = instance + RPL_MAX_INSTANCES;
       instance < end; ++instance) {
     if(instance->used == 1) {
-#if RPL_LEAF_ONLY
-      if(!uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
-	PRINTF("RPL: LEAF ONLY Multicast DIS will NOT reset DIO timer\n");
-#else /* !RPL_LEAF_ONLY */
-      if(uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
-        PRINTF("RPL: Multicast DIS => reset DIO timer\n");
-        rpl_reset_dio_timer(instance);
-      } else {
-#endif /* !RPL_LEAF_ONLY */
-	/* Check if this neighbor should be added according to the policy. */
-        if(rpl_icmp6_update_nbr_table(&UIP_IP_BUF->srcipaddr,
+      if(g_node_type == NODE_6LN) {
+        if(!uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
+	  PRINTF("RPL: LEAF ONLY Multicast DIS will NOT reset DIO timer\n");
+	  /* Check if this neighbor should be added according to the policy. */
+          if(rpl_icmp6_update_nbr_table(&UIP_IP_BUF->srcipaddr,
                                       NBR_TABLE_REASON_RPL_DIS, NULL) == NULL) {
-          PRINTF("RPL: Out of Memory, not sending unicast DIO, DIS from ");
-          PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-          PRINTF(", ");
-          PRINTLLADDR((uip_lladdr_t *)packetbuf_addr(PACKETBUF_ADDR_SENDER));
-          PRINTF("\n");
-        } else {
-          PRINTF("RPL: Unicast DIS, reply to sender\n");
-          dio_output(instance, &UIP_IP_BUF->srcipaddr);
+            PRINTF("RPL: Out of Memory, not sending unicast DIO, DIS from ");
+            PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
+            PRINTF(", ");
+            PRINTLLADDR((uip_lladdr_t *)packetbuf_addr(PACKETBUF_ADDR_SENDER));
+            PRINTF("\n");
+          } else {
+            PRINTF("RPL: Unicast DIS, reply to sender\n");
+            dio_output(instance, &UIP_IP_BUF->srcipaddr);
+          }
         }
-	/* } */
       }
-    }
-  }
+      else {
+        if(uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
+          PRINTF("RPL: Multicast DIS => reset DIO timer\n");
+          rpl_reset_dio_timer(instance);
+        } else {
+	  /* Check if this neighbor should be added according to the policy. */
+          if(rpl_icmp6_update_nbr_table(&UIP_IP_BUF->srcipaddr,
+                                      NBR_TABLE_REASON_RPL_DIS, NULL) == NULL) {
+            PRINTF("RPL: Out of Memory, not sending unicast DIO, DIS from ");
+            PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
+            PRINTF(", ");
+            PRINTLLADDR((uip_lladdr_t *)packetbuf_addr(PACKETBUF_ADDR_SENDER));
+            PRINTF("\n");
+          } else {
+            PRINTF("RPL: Unicast DIS, reply to sender\n");
+            dio_output(instance, &UIP_IP_BUF->srcipaddr);
+          }
+        }
+      }
+    } /* instance->used == 1 */
+  } /* for loop*/
   uip_clear_buf();
 }
 /*---------------------------------------------------------------------------*/
@@ -281,7 +302,29 @@ dis_output(uip_ipaddr_t *addr)
   PRINT6ADDR(addr);
   PRINTF("\n");
 
+  if(g_FAN_compliant == 1){
+    /* Insert Solicited Information option */
+    rpl_dag_t* currentDag;
+    
+    buffer[2] = RPL_OPTION_SOLICITED_INFO;
+    buffer[3] = 19; //Option length as per RFC6550
+    currentDag = rpl_get_any_dag();
+    if(currentDag != NULL){
+      /* Node previously joined to a network. Hence fill that information.*/
+      buffer[4] = currentDag->instance->instance_id; //RPLInstanceID
+      buffer[5] = 0xE0; // V, I, D are set to 1
+      memcpy(buffer + 6, &currentDag->dag_id.u8[0], 16);
+      buffer[22] = currentDag->version;
+    }
+    else {
+      memset(buffer + 4, 0, buffer[3]);
+    }
+    uip_icmp6_send(addr, ICMP6_RPL, RPL_CODE_DIS, 2 + buffer[3] + 2);
+  }
+  else {
   uip_icmp6_send(addr, ICMP6_RPL, RPL_CODE_DIS, 2);
+  }
+
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -485,14 +528,14 @@ dio_output(rpl_instance_t *instance, uip_ipaddr_t *uc_addr)
   uip_ipaddr_t addr;
 #endif /* !RPL_LEAF_ONLY */
 
-#if RPL_LEAF_ONLY
-  /* In leaf mode, we only send DIO messages as unicasts in response to
-     unicast DIS messages. */
-  if(uc_addr == NULL) {
-    PRINTF("RPL: LEAF ONLY have multicast addr: skip dio_output\n");
-    return;
+  if( g_node_type == NODE_6LN ){
+    /* In leaf mode, we only send DIO messages as unicasts in response to
+       unicast DIS messages. */
+    if(uc_addr == NULL) {
+      PRINTF("RPL: LEAF ONLY have multicast addr: skip dio_output\n");
+      return;
+    }
   }
-#endif /* RPL_LEAF_ONLY */
 
   /* DAG Information Object */
   pos = 0;
@@ -502,12 +545,13 @@ dio_output(rpl_instance_t *instance, uip_ipaddr_t *uc_addr)
   buffer[pos++] = dag->version;
   is_root = (dag->rank == ROOT_RANK(instance));
 
-#if RPL_LEAF_ONLY
-  PRINTF("RPL: LEAF ONLY DIO rank set to INFINITE_RANK\n");
-  set16(buffer, pos, INFINITE_RANK);
-#else /* RPL_LEAF_ONLY */
-  set16(buffer, pos, dag->rank);
-#endif /* RPL_LEAF_ONLY */
+  if (g_node_type == NODE_6LN) {
+    PRINTF("RPL: LEAF ONLY DIO rank set to INFINITE_RANK\n");
+    set16(buffer, pos, INFINITE_RANK);
+  }
+  else {
+    set16(buffer, pos, dag->rank);
+  }
   pos += 2;
 
   buffer[pos] = 0;
@@ -535,31 +579,31 @@ dio_output(rpl_instance_t *instance, uip_ipaddr_t *uc_addr)
   memcpy(buffer + pos, &dag->dag_id, sizeof(dag->dag_id));
   pos += 16;
 
-#if !RPL_LEAF_ONLY
-  if(instance->mc.type != RPL_DAG_MC_NONE) {
-    instance->of->update_metric_container(instance);
+  if(g_node_type != NODE_6LN) {
+    if(instance->mc.type != RPL_DAG_MC_NONE) {
+      instance->of->update_metric_container(instance);
 
-    buffer[pos++] = RPL_OPTION_DAG_METRIC_CONTAINER;
-    buffer[pos++] = 6;
-    buffer[pos++] = instance->mc.type;
-    buffer[pos++] = instance->mc.flags >> 1;
-    buffer[pos] = (instance->mc.flags & 1) << 7;
-    buffer[pos++] |= (instance->mc.aggr << 4) | instance->mc.prec;
-    if(instance->mc.type == RPL_DAG_MC_ETX) {
-      buffer[pos++] = 2;
-      set16(buffer, pos, instance->mc.obj.etx);
-      pos += 2;
-    } else if(instance->mc.type == RPL_DAG_MC_ENERGY) {
-      buffer[pos++] = 2;
-      buffer[pos++] = instance->mc.obj.energy.flags;
-      buffer[pos++] = instance->mc.obj.energy.energy_est;
-    } else {
-      PRINTF("RPL: Unable to send DIO because of unhandled DAG MC type %u\n",
-	(unsigned)instance->mc.type);
-      return;
+      buffer[pos++] = RPL_OPTION_DAG_METRIC_CONTAINER;
+      buffer[pos++] = 6;
+      buffer[pos++] = instance->mc.type;
+      buffer[pos++] = instance->mc.flags >> 1;
+      buffer[pos] = (instance->mc.flags & 1) << 7;
+      buffer[pos++] |= (instance->mc.aggr << 4) | instance->mc.prec;
+      if(instance->mc.type == RPL_DAG_MC_ETX) {
+        buffer[pos++] = 2;
+        set16(buffer, pos, instance->mc.obj.etx);
+        pos += 2;
+      } else if(instance->mc.type == RPL_DAG_MC_ENERGY) {
+        buffer[pos++] = 2;
+        buffer[pos++] = instance->mc.obj.energy.flags;
+        buffer[pos++] = instance->mc.obj.energy.energy_est;
+      } else {
+        PRINTF("RPL: Unable to send DIO because of unhandled DAG MC type %u\n",
+	  (unsigned)instance->mc.type);
+        return;
+      }
     }
   }
-#endif /* !RPL_LEAF_ONLY */
 
   /* Always add a DAG configuration option. */
   buffer[pos++] = RPL_OPTION_DAG_CONF;
@@ -602,38 +646,39 @@ dio_output(rpl_instance_t *instance, uip_ipaddr_t *uc_addr)
            dag->prefix_info.length);
   }
 
-#if RPL_LEAF_ONLY
+  if(g_node_type == NODE_6LN) {
 #if (DEBUG) & DEBUG_PRINT
-  if(uc_addr == NULL) {
-    PRINTF("RPL: LEAF ONLY sending unicast-DIO from multicast-DIO\n");
-  }
+    if(uc_addr == NULL) {
+      PRINTF("RPL: LEAF ONLY sending unicast-DIO from multicast-DIO\n");
+    }
 #endif /* DEBUG_PRINT */
-  PRINTF("RPL: Sending unicast-DIO with rank %u to ",
-      (unsigned)dag->rank);
-  PRINT6ADDR(uc_addr);
-  PRINTF("\n");
-  uip_icmp6_send(uc_addr, ICMP6_RPL, RPL_CODE_DIO, pos);
-#else /* RPL_LEAF_ONLY */
-  /* Unicast requests get unicast replies! */
-  if(uc_addr == NULL) {
-    PRINTF("RPL: Sending a multicast-DIO with rank %u\n",
-        (unsigned)instance->current_dag->rank);
-    uip_create_linklocal_rplnodes_mcast(&addr);
-    uip_icmp6_send(&addr, ICMP6_RPL, RPL_CODE_DIO, pos);
-  } else {
     PRINTF("RPL: Sending unicast-DIO with rank %u to ",
-        (unsigned)instance->current_dag->rank);
+      (unsigned)dag->rank);
     PRINT6ADDR(uc_addr);
     PRINTF("\n");
     uip_icmp6_send(uc_addr, ICMP6_RPL, RPL_CODE_DIO, pos);
   }
-#endif /* RPL_LEAF_ONLY */
+  else {
+    /* Unicast requests get unicast replies! */
+    if(uc_addr == NULL) {
+      PRINTF("RPL: Sending a multicast-DIO with rank %u\n",
+          (unsigned)instance->current_dag->rank);
+      uip_create_linklocal_rplnodes_mcast(&addr);
+      uip_icmp6_send(&addr, ICMP6_RPL, RPL_CODE_DIO, pos);
+    } else {
+      PRINTF("RPL: Sending unicast-DIO with rank %u to ",
+          (unsigned)instance->current_dag->rank);
+      PRINT6ADDR(uc_addr);
+      PRINTF("\n");
+      uip_icmp6_send(uc_addr, ICMP6_RPL, RPL_CODE_DIO, pos);
+    }
+  }
 }
 /*---------------------------------------------------------------------------*/
 static void
 dao_input_storing(void)
 {
-#if RPL_WITH_STORING
+//#if RPL_WITH_STORING
   uip_ipaddr_t dao_sender_addr;
   rpl_dag_t *dag;
   rpl_instance_t *instance;
@@ -894,7 +939,7 @@ fwd_dao:
                      RPL_DAO_ACK_UNCONDITIONAL_ACCEPT);
     }
   }
-#endif /* RPL_WITH_STORING */
+//#endif /* RPL_WITH_STORING */
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -1189,9 +1234,12 @@ dao_output_target_seq(rpl_parent_t *parent, uip_ipaddr_t *prefix,
   buffer[pos] |= RPL_DAO_D_FLAG;
 #endif /* RPL_DAO_SPECIFY_DAG */
 #if RPL_WITH_DAO_ACK
+  PRINTF("RPL DAO with ACK\n");
   if(lifetime != RPL_ZERO_LIFETIME) {
     buffer[pos] |= RPL_DAO_K_FLAG;
   }
+#else
+   PRINTF("RPL DAO without ACK\n");
 #endif /* RPL_WITH_DAO_ACK */
   ++pos;
   buffer[pos++] = 0; /* reserved */

@@ -33,6 +33,15 @@
 #ifndef CONTIKI_CONF_H_
 #define CONTIKI_CONF_H_
 
+
+//@kaveri-non-storing
+
+#ifdef RPL_CONF_WITH_NON_STORING
+#undef RPL_CONF_WITH_NON_STORING
+#endif
+
+#define RPL_CONF_WITH_NON_STORING	1
+
 #ifdef INCLUDE_SUBPLATFORM_CONF
 #include "subplatform-conf.h"
 #endif /* INCLUDE_SUBPLATFORM_CONF */

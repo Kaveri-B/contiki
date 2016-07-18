@@ -214,7 +214,7 @@ contiki_init()
   /* Start Contiki processes */
 
   process_start(&etimer_process, NULL);
-  process_start(&sensors_process, NULL);
+  //process_start(&sensors_process, NULL);
   ctimer_init();
 
   /* Print startup information */
@@ -276,7 +276,7 @@ contiki_init()
 
 #if NETSTACK_CONF_WITH_IPV6
   /* IPv6 CONFIGURATION */
-  {
+#if 0  
     int i;
     uint8_t addr[sizeof(uip_lladdr.addr)];
     for(i = 0; i < sizeof(uip_lladdr.addr); i += 2) {
@@ -315,7 +315,7 @@ contiki_init()
       printf("%02x%02x\n",
              ipaddr.u8[7 * 2], ipaddr.u8[7 * 2 + 1]);
     }
-  }
+#endif  
 #endif /* NETSTACK_CONF_WITH_IPV6 */
 
   /* Initialize eeprom */

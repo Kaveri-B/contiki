@@ -57,6 +57,7 @@
 
 #include <limits.h>
 #include <string.h>
+#include "RF_Module_API_Handler.h"
 
 #define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
@@ -67,6 +68,7 @@ void RPL_CALLBACK_PARENT_SWITCH(rpl_parent_t *old, rpl_parent_t *new);
 #endif /* RPL_CALLBACK_PARENT_SWITCH */
 
 /*---------------------------------------------------------------------------*/
+extern RPL_MOP_Type_t g_RPL_MOP_type;
 extern rpl_of_t rpl_of0, rpl_mrhof;
 static rpl_of_t * const objective_functions[] = RPL_SUPPORTED_OFS;
 
@@ -391,7 +393,7 @@ rpl_set_root(uint8_t instance_id, uip_ipaddr_t *dag_id)
   dag->joined = 1;
   dag->grounded = RPL_GROUNDED;
   dag->preference = RPL_PREFERENCE;
-  instance->mop = RPL_MOP_DEFAULT;
+  instance->mop = g_RPL_MOP_type;
   instance->of = rpl_find_of(RPL_OF_OCP);
   if(instance->of == NULL) {
     PRINTF("RPL: OF with OCP %u not supported\n", RPL_OF_OCP);
@@ -1082,9 +1084,7 @@ rpl_join_instance(uip_ipaddr_t *from, rpl_dio_t *dio)
   rpl_parent_t *p;
   rpl_of_t *of;
 
-  if((!RPL_WITH_NON_STORING && dio->mop == RPL_MOP_NON_STORING)
-      || (!RPL_WITH_STORING && (dio->mop == RPL_MOP_STORING_NO_MULTICAST
-          || dio->mop == RPL_MOP_STORING_MULTICAST))) {
+  if(dio->mop != g_RPL_MOP_type) {
     PRINTF("RPL: DIO advertising a non-supported MOP %u\n", dio->mop);
   }
 
@@ -1440,7 +1440,7 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
    * In that scenario, we suppress DAOs for multicast targets */
   if(dio->mop < RPL_MOP_STORING_NO_MULTICAST) {
 #else
-  if(dio->mop != RPL_MOP_DEFAULT) {
+  if(dio->mop != g_RPL_MOP_type) {
 #endif
     PRINTF("RPL: Ignoring a DIO with an unsupported MOP: %d\n", dio->mop);
     return;

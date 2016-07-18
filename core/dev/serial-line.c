@@ -34,6 +34,9 @@
 
 #include "lib/ringbuf.h"
 
+#define DEBUG	DEBUG_FULL
+#include "net/ip/uip-debug.h"
+
 #ifdef SERIAL_LINE_CONF_BUFSIZE
 #define BUFSIZE SERIAL_LINE_CONF_BUFSIZE
 #else /* SERIAL_LINE_CONF_BUFSIZE */
