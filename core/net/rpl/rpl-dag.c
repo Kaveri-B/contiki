@@ -1086,6 +1086,7 @@ rpl_join_instance(uip_ipaddr_t *from, rpl_dio_t *dio)
 
   if(dio->mop != g_RPL_MOP_type) {
     PRINTF("RPL: DIO advertising a non-supported MOP %u\n", dio->mop);
+    return;
   }
 
   /* Determine the objective function by using the
