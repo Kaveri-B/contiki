@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, Swedish Institute of Computer Science
+ * Copyright (c) 2016, Inria.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,77 +30,69 @@
  *
  */
 
+/**
+ * \file
+ *         An example of Rime/TSCH
+ * \author
+ *         Simon Duquennoy <simon.duquennoy@inria.fr>
+ *
+ */
+
 #include <stdio.h>
+#include "contiki-conf.h"
+#include "net/netstack.h"
+#include "net/rime/rime.h"
+#include "net/mac/tsch/tsch.h"
 
-#include "contiki-net.h"
-#include "net/ethernet.h"
-#include "net/ip/tcpip.h"
-#include "net/ipv4/uip-neighbor.h"
-
-#include "net/ethernet-drv.h"
-
-#define BUF ((struct uip_eth_hdr *)&uip_buf[0])
-#define IPBUF ((struct uip_tcpip_hdr *)&uip_buf[UIP_LLH_LEN])
-
-PROCESS(ethernet_process, "Ethernet driver");
+const linkaddr_t coordinator_addr =    { { 1, 0 } };
+const linkaddr_t destination_addr =    { { 1, 0 } };
 
 /*---------------------------------------------------------------------------*/
-uint8_t
-#if NETSTACK_CONF_WITH_IPV6
-ethernet_output(const uip_lladdr_t *)
-#else
-ethernet_output(void)
-#endif
+PROCESS(unicast_test_process, "Rime Node");
+AUTOSTART_PROCESSES(&unicast_test_process);
+
+/*---------------------------------------------------------------------------*/
+static void
+recv_uc(struct unicast_conn *c, const linkaddr_t *from)
 {
-  uip_arp_out();
-  ethernet_send();
-  
-  return 0;
+  printf("App: unicast message received from %u.%u\n",
+   from->u8[0], from->u8[1]);
 }
 /*---------------------------------------------------------------------------*/
 static void
-pollhandler(void)
+sent_uc(struct unicast_conn *ptr, int status, int num_tx)
 {
-  process_poll(&ethernet_process);
-  uip_len = ethernet_poll();
-
-  if(uip_len > 0) {
-#if NETSTACK_CONF_WITH_IPV6
-    if(BUF->type == uip_htons(UIP_ETHTYPE_IPV6)) {
-      uip_neighbor_add(&IPBUF->srcipaddr, (struct uip_neighbor_addr *)&BUF->src);
-      tcpip_input();
-    } else
-#endif /* NETSTACK_CONF_WITH_IPV6 */
-    if(BUF->type == uip_htons(UIP_ETHTYPE_IP)) {
-      uip_len -= sizeof(struct uip_eth_hdr);
-      tcpip_input();
-    } else if(BUF->type == uip_htons(UIP_ETHTYPE_ARP)) {
-      uip_arp_arpin();
-      /* If the above function invocation resulted in data that
-         should be sent out on the network, the global variable
-         uip_len is set to a value > 0. */
-      if(uip_len > 0) {
-        ethernet_send();
-      }
-    }
-  }
+  printf("App: unicast message sent, status %u, num_tx %u\n",
+   status, num_tx);
 }
-/*---------------------------------------------------------------------------*/
-PROCESS_THREAD(ethernet_process, ev, data)
-{
-  PROCESS_POLLHANDLER(pollhandler());
 
+static const struct unicast_callbacks unicast_callbacks = { recv_uc, sent_uc };
+static struct unicast_conn uc;
+
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(unicast_test_process, ev, data)
+{
   PROCESS_BEGIN();
 
-  ethernet_init((struct ethernet_config *)data);
+  tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
+  NETSTACK_MAC.on();
 
-  tcpip_set_outputfunc(ethernet_output);
+  unicast_open(&uc, 146, &unicast_callbacks);
 
-  process_poll(&ethernet_process);
+  while(1) {
+    static struct etimer et;
 
-  PROCESS_WAIT_UNTIL(ev == PROCESS_EVENT_EXIT);
+    etimer_set(&et, CLOCK_SECOND);
 
-  ethernet_exit();
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+
+    packetbuf_copyfrom("Hello", 5);
+
+    if(!linkaddr_cmp(&destination_addr, &linkaddr_node_addr)) {
+      printf("App: sending unicast message to %u.%u\n", destination_addr.u8[0], destination_addr.u8[1]);
+      unicast_send(&uc, &destination_addr);
+    }
+  }
 
   PROCESS_END();
 }
