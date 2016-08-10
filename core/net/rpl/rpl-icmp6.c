@@ -1386,6 +1386,7 @@ dao_ack_input(void)
   }
 #endif /* RPL_WITH_DAO_ACK */
   uip_clear_buf();
+  rpl_join_indication(1);
 }
 /*---------------------------------------------------------------------------*/
 void

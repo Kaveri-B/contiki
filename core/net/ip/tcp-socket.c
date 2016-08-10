@@ -39,6 +39,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#define DEBUG DEBUG_FULL
+#include "net/ip/uip-debug.h"
 
 
 static void relisten(struct tcp_socket *s);
@@ -337,12 +339,14 @@ tcp_socket_unlisten(struct tcp_socket *s)
   return 1;
 }
 /*---------------------------------------------------------------------------*/
+extern unsigned int dbg_g_tcp_socket_send;
 int
 tcp_socket_send(struct tcp_socket *s,
                 const uint8_t *data, int datalen)
 {
   int len;
 
+  dbg_g_tcp_socket_send++;
   if(s == NULL) {
     return -1;
   }

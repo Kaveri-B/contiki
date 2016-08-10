@@ -56,6 +56,7 @@
 
 #define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
+#include "sys/node-id.h"
 
 static uip_ipaddr_t prefix;
 static uint8_t prefix_set;
@@ -400,6 +401,8 @@ set_prefix_64(uip_ipaddr_t *prefix_64)
 PROCESS_THREAD(border_router_process, ev, data)
 {
   static struct etimer et;
+  uint8_t addr[sizeof(uip_lladdr.addr)];
+  int i;
 
   PROCESS_BEGIN();
 
@@ -423,6 +426,29 @@ PROCESS_THREAD(border_router_process, ev, data)
      cpu will interfere with establishing the SLIP connection */
   NETSTACK_MAC.off(1);
 #endif
+
+    //@debug
+    for(i = 0; i < sizeof(uip_lladdr.addr); i += 2) {
+      addr[i + 1] = node_id & 0xff;
+      addr[i + 0] = node_id >> 8;
+    }
+    linkaddr_copy((linkaddr_t *)addr, &linkaddr_node_addr);
+    memcpy(&uip_lladdr.addr, addr, sizeof(uip_lladdr.addr));
+
+    process_start(&tcpip_process, NULL);
+
+    printf("Tentative link-local IPv6 address ");
+    {
+      uip_ds6_addr_t *lladdr;
+      int i;
+      lladdr = uip_ds6_get_link_local(-1);
+      for(i = 0; i < 7; ++i) {
+        printf("%02x%02x:", lladdr->ipaddr.u8[i * 2],
+               lladdr->ipaddr.u8[i * 2 + 1]);
+      }
+      printf("%02x%02x\n", lladdr->ipaddr.u8[14],
+             lladdr->ipaddr.u8[15]);
+    }
 
   /* Request prefix until it has been received */
   while(!prefix_set) {
@@ -451,3 +477,8 @@ PROCESS_THREAD(border_router_process, ev, data)
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
+
+void rpl_join_indication(unsigned int joined)
+{
+
+}

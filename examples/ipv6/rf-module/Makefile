@@ -1,4 +1,4 @@
-all: rf-module udp-server
+all: rf-module udp-server 
 CONTIKI=../../..
 
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
@@ -7,6 +7,10 @@ ifdef WITH_COMPOWER
 APPS+=powertrace
 CFLAGS+= -DCONTIKIMAC_CONF_COMPOWER=1 -DWITH_COMPOWER=1 -DQUEUEBUF_CONF_NUM=4
 endif
+
+
+APPS+=mbedtls_client
+APPS+=https-socket
 
 ifdef SERVER_REPLY
 CFLAGS+=-DSERVER_REPLY=$(SERVER_REPLY)
@@ -21,3 +25,10 @@ endif
 
 CONTIKI_WITH_IPV6 = 1
 include $(CONTIKI)/Makefile.include
+
+CFLAGS += -I$(CONTIKI)/mbedTLS/include
+
+CFLAGS += -DUSE_HEAP
+
+
+

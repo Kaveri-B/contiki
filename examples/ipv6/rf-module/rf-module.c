@@ -49,6 +49,9 @@
 #include "net/rpl/rpl.h"
 
 #include "RF_Module_API_Handler.h"
+#include <ctype.h>
+#include <stdio.h>
+#include <stdbool.h>
 
 #define UDP_CLIENT_PORT 8765
 #define UDP_SERVER_PORT 5678
@@ -57,6 +60,8 @@
 
 #define DEBUG DEBUG_FULL
 #include "net/ip/uip-debug.h"
+#include "mbedtls_Interface.h"
+#include "http-socket.h"
 
 #ifndef PERIOD
 #define PERIOD 60
@@ -74,9 +79,22 @@ extern unsigned char g_FAN_compliant;
 
 static struct uip_udp_conn *client_conn;
 static uip_ipaddr_t server_ipaddr;
-static uip_ipaddr_t br_prefix = {0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static uip_ipaddr_t br_prefix = {{0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
 static uip_ipaddr_t prefix;
 static uint8_t prefix_set;
+/*---------------------------------------------------------------------------*/
+
+unsigned int dbg_g_mbedtls_net_send = 0;
+unsigned int dbg_g_tcp_socket_send = 0;
+unsigned int dbg_g_mbedtls_net_recv = 0;
+struct dbg_net_recv_struct {
+    unsigned int requested_len;
+    unsigned int len;
+    unsigned char *pointer;
+    unsigned int read;
+};
+struct dbg_net_recv_struct dbg_g_net_recv_struct[20];
+
 
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_client_process, "UDP client process");
@@ -420,6 +438,12 @@ PROCESS_THREAD(border_router_process, ev, data)
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
+
+static void  router_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
+                                                                  int numroutes);
+static struct uip_ds6_notification n;
+struct http_socket g_https_socket;
+
 /*---------------------------------------------------------------------------*/
 static void start_network(char *str)
 {
@@ -507,11 +531,22 @@ static void start_network(char *str)
       printf("%02x%02x\n",
              ipaddr.u8[7 * 2], ipaddr.u8[7 * 2 + 1]);
     }
+
+    uip_ds6_notification_add(&n, router_callback);
     if(memcmp(str, "6LBR", 4) == 0){
       process_start(&border_router_process, NULL);
     }
+    
+    mbedtls_client_init();
 }
 /*---------------------------------------------------------------------------*/
+//@debug
+//#include "mbedtls/platform.h"
+//#include "mbedtls/config.h"
+//#include "mbedtls/net.h"
+
+//static mbedtls_ssl_context ssl;
+
 uint8_t g_dbg = 0;
 PROCESS_THREAD(uart_handler_process, ev, data)
 {
@@ -530,6 +565,8 @@ PROCESS_THREAD(uart_handler_process, ev, data)
 		if(!process_is_running(&tcpip_process)){
 		
 			start_network(&str[13]);
+			//mbedtls_dummy_fun();
+			//mbedtls_ssl_init( &ssl );
 		}
       }
       if(memcmp(str, "SEND_TO_DEFAULT", 15) == 0) {
@@ -547,10 +584,58 @@ PROCESS_THREAD(uart_handler_process, ev, data)
 		}
       }
       else if(memcmp(str, "DEBUG", 5) == 0){
-              PRINTF("DEBUG: %d \n", g_dbg);
+	int temp_i;
+        for(temp_i=0; temp_i<10; temp_i++){
+              PRINTF("req_len: %d, read:%d,  len:%d, ptr:%u \n", dbg_g_net_recv_struct[temp_i].requested_len, dbg_g_net_recv_struct[temp_i].read, dbg_g_net_recv_struct[temp_i].len, dbg_g_net_recv_struct[temp_i].pointer);
+        }
+	//PRINTF("sizeof size_t: %d\n", sizeof(size_t));
       }
     }
     
   }
   PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/
+static unsigned int temp_router_callback = 0;
+static void  router_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipaddr,
+                                                                  int numroutes)
+{
+  if( event == UIP_DS6_NOTIFICATION_DEFRT_ADD ){
+
+    
+  }
+  if(event == UIP_DS6_NOTIFICATION_DEFRT_RM) {   
+  }
+}
+/*---------------------------------------------------------------------------*/
+void RFM_handle_http_callback(struct http_socket *s,
+                                        void *ptr,
+                                        http_socket_event_t ev,
+                                        const uint8_t *data,
+                                        uint16_t datalen)
+{
+    uint16_t i;
+
+    if((ev == HTTP_SOCKET_HEADER) || (ev == HTTP_SOCKET_DATA)) {
+      if(ev == HTTP_SOCKET_HEADER)
+	PRINTF("Recived HTTP header:\n");
+      if(ev == HTTP_SOCKET_DATA)
+        PRINTF("HTTP body:\n");
+      for(i = 0; i<datalen; i++)
+        PRINTF("%c",data[i]);
+      PRINTF("\n");
+    }
+}
+
+
+void rpl_join_indication(unsigned int joined)
+{
+  if(joined){
+   if(temp_router_callback == 0){
+      temp_router_callback = 1;
+	http_socket_init(&g_https_socket);
+        http_socket_post(&g_https_socket, "http://108.61.78.94", NULL, 0, NULL, RFM_handle_http_callback, NULL);
+   }
+  }
+
 }
