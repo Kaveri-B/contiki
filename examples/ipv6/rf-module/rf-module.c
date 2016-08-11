@@ -608,6 +608,27 @@ static void  router_callback(int event, uip_ipaddr_t *route, uip_ipaddr_t *ipadd
   }
 }
 /*---------------------------------------------------------------------------*/
+static uint8_t g_http_req[34] = {0x47, 0x45, 0x54, 0x20, 0x2f, 0x20, 0x48, 0x54, 0x54, 0x50, 0x2f, 0x31, 0x2e, 0x30, 0x0d, 0x0a, 0x45, 0x78, 0x74, 0x72, 0x61, 0x2d, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x3a, 0x20, 0x0d, 0x0a, 0x0d, 0x0a};
+
+void mbedtls_client_app_notification(uint8_t mbedtls_event)
+{
+    int ret, i;
+    if(mbedtls_event == MBEDTLS_EVENT_SSL_COMPLETED){
+        PRINTF("SSL handshake done. Send http request\n");
+        ret = mbedtls_ssl_write(&ssl, g_http_req, sizeof(g_http_req));
+        if(ret <= 0){
+           PRINTF("ssl_write failed.\n");
+        }
+        else {
+           PRINTF("Sent http request of %d bytes: ", ret);
+           for(i = 0; i < sizeof(g_http_req); i++){
+               PRINTF("%c",g_http_req[i]);
+           }
+           PRINTF("\n");
+        }
+    }
+}
+
 void RFM_handle_http_callback(struct http_socket *s,
                                         void *ptr,
                                         http_socket_event_t ev,
@@ -618,12 +639,27 @@ void RFM_handle_http_callback(struct http_socket *s,
 
     if((ev == HTTP_SOCKET_HEADER) || (ev == HTTP_SOCKET_DATA)) {
       if(ev == HTTP_SOCKET_HEADER)
-	PRINTF("Recived HTTP header:\n");
+	PRINTF("Received HTTP header:\n");
       if(ev == HTTP_SOCKET_DATA)
-        PRINTF("HTTP body:\n");
+        PRINTF("Received HTTP body of %d bytes:\n", datalen);
       for(i = 0; i<datalen; i++)
         PRINTF("%c",data[i]);
       PRINTF("\n");
+    }
+    else if(ev == HTTP_SOCKET_ERR) {
+       PRINTF("HTTP socket error\n");
+    }
+    else if(ev == HTTP_SOCKET_TIMEDOUT) {
+       PRINTF("HTTP socket error: timed out\n");
+    }
+    else if(ev == HTTP_SOCKET_ABORTED) {
+       PRINTF("HTTP socket error: aborted\n");
+    }
+    else if(ev == HTTP_SOCKET_HOSTNAME_NOT_FOUND) {
+       PRINTF("HTTP socket error: hostname not found\n");
+    }
+    else if(ev == HTTP_SOCKET_CLOSED) {
+       PRINTF("HTTP socket closed\n");
     }
 }
 
@@ -634,7 +670,8 @@ void rpl_join_indication(unsigned int joined)
    if(temp_router_callback == 0){
       temp_router_callback = 1;
 	http_socket_init(&g_https_socket);
-        http_socket_post(&g_https_socket, "http://108.61.78.94", NULL, 0, NULL, RFM_handle_http_callback, NULL);
+        //http_socket_post(&g_https_socket, "https://[aaaa::1]:443", NULL, 0, NULL, RFM_handle_http_callback, NULL);
+        http_socket_get(&g_https_socket, "https://[aaaa::1]:443", 0, 0, RFM_handle_http_callback, NULL);
    }
   }
 

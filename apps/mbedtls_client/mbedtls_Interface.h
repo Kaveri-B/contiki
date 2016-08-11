@@ -1,9 +1,15 @@
 /*
-*  Header file which contains default settings for mbedTLS client application.
+*  Header file which contains default settings and required APIs for mbedTLS 
+*  integration.
 */
 #ifndef MBEDTLS_INTERFACE_H_
 #define MBEDTLS_INTERFACE_H_
 
+#include "mbedtls/platform.h"
+#include "mbedtls/config.h"
+#include "mbedtls/net.h"
+
+/* Default settings for mbedTLS client application. */
 #define DFL_SERVER_NAME         "localhost"
 #define DFL_SERVER_ADDR         NULL
 #define DFL_SERVER_PORT         "4433"
@@ -59,7 +65,7 @@
 #define MBEDTLS_DATA_RECEIVED_FROM_SERVER	0x03
 
 /*
- * global options
+ * global options structure
  */
 struct options
 {
@@ -106,11 +112,21 @@ struct options
     int etm;                    /* negotiate encrypt then mac?              */
 };
 
+enum mbedtls_notify_events {
+  MBEDTLS_EVENT_SSL_STARTED,
+  MBEDTLS_EVENT_SSL_COMPLETED
+};
 extern bool SSL_Handshake_Completed;
+extern mbedtls_ssl_context ssl;
 
 /* APIs provided by mbedtls_client_app. */
 int mbedtls_client_init(void);
-int mbedtls_handle_rcvd_data(uint8_t *rcvd_data_ptr, int rcvd_data_len);
 void mbedtls_start_ssl_handshake(void);
+
+/* APIs provided by mbedtls_Interface*/
+int mbedtls_handle_rcvd_data(uint8_t *rcvd_data_ptr, int rcvd_data_len);
+
+/* Prototype of mbedTLS client application callbacks */
+void mbedtls_client_app_notification(uint8_t mbedtls_event);
 
 #endif /* MBEDTLS_INTERFACE_H_ */

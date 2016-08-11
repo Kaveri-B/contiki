@@ -44,11 +44,6 @@
 PROCESS(https_socket_process, "HTTPS socket process");
 LIST(socketlist);
 
-unsigned char *g_ssl_rcvd_data_ptr = NULL;
-size_t g_ssl_rcvd_data_len = 0;
-
-uint32_t current_sleep_duration = 5;
-
 static void removesocket(struct http_socket *s);
 /*---------------------------------------------------------------------------*/
 static void
@@ -237,7 +232,7 @@ input_pt(struct http_socket *s,
 {
   int i;
   PT_BEGIN(&s->pt);
-  
+
   /* Parse the header */
   s->header_received = 0;
   do {
@@ -290,43 +285,22 @@ input(struct tcp_socket *tcps, void *ptr,
       const uint8_t *inputptr, int inputdatalen)
 {
   struct http_socket *s = ptr;
-  int decrypted_data_length = 0, i;
+  int decrypted_data_length = inputdatalen, i;
   
   PRINTF("TCP input data rcvd: %d bytes\n", inputdatalen);
 
-  if((inputdatalen)) {
-      //PRINTF("last 10 bytes:");
-     //for(i = 10; (i > 0) && (inputdatalen > 10); i--){
-      //PRINTF(" 0x%02x", inputptr[inputdatalen - i]);
-     //}
-     //PRINTF("\n");
-      decrypted_data_length = mbedtls_handle_rcvd_data((uint8_t*)inputptr, inputdatalen);
-   }
-  
-  //TO DO: get the decrypted datalen from Handle_SSL_Pkt() and send
-  // it to input_pt() with http_data_buf containing decrypted data
-  
-//  if(SSL_Handshake_In_Progress)
-//  {
-//    Handle_Handshake_Pkt((uint8_t*)inputptr, inputdatalen);
-//  }
-//  else
-//  {
-//    input_pt(s, inputptr, inputdatalen);
-//  }
-    if(decrypted_data_length > 0){
-        PRINTF("Yes received http response!!!\n");
-        //for(i=0; i < decrypted_data_length; i++){
-        //    PRINTF("%c", inputptr[i]);
-       // }
-       //PRINTF("*********************\n");
-      //application_callback_function(inputptr, decrypted_data_length);
-        input_pt(s, inputptr, decrypted_data_length);
-    }
-    
+  if(strncmp(s->url, "https:", strlen("https:")) == 0){
+     decrypted_data_length = 0;
+     if((inputdatalen)) {
+        decrypted_data_length = mbedtls_handle_rcvd_data((uint8_t*)inputptr, inputdatalen);
+     }
+  }
+  if(decrypted_data_length > 0) {
+     input_pt(s, inputptr, decrypted_data_length);
+  }  
   start_timeout_timer(s);
 
-  return 0; //decrypted_data_length; /* all data consumed */
+  return 0; /* all data consumed */
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -352,6 +326,9 @@ parse_url(const char *url, char *host, uint16_t *portptr, char *path)
      assume it is an implicit http://. */
   if(strncmp(url, "http://", strlen("http://")) == 0) {
     urlptr = url + strlen("http://");
+  } 
+  if (strncmp(url, "https://", strlen("https://")) == 0) {
+    urlptr = url + strlen("https://");
   } else {
     urlptr = url;
   }
@@ -365,6 +342,7 @@ parse_url(const char *url, char *host, uint16_t *portptr, char *path)
         if(host != NULL) {
           host[i] = 0;
         }
+        urlptr++;
         break;
       }
       if(host != NULL) {
@@ -388,6 +366,11 @@ parse_url(const char *url, char *host, uint16_t *portptr, char *path)
       }
       ++urlptr;
     }
+  }
+
+  /* check if host is null terminated */
+  if(!memchr(host, 0, MAX_HOSTLEN)) {
+    return 0;
   }
 
   /* Find the port. Default is 80. */
@@ -428,14 +411,6 @@ removesocket(struct http_socket *s)
   list_remove(socketlist, s);
 }
 /*---------------------------------------------------------------------------*/
-
-
-extern uint8_t *SslData;
-extern volatile uint16_t SslDataLen;
-//extern volatile uint16_t SslData_index;
-extern uint8_t tcp_conn_established;
-extern bool SSL_Handshake_Completed;
-
 static void
 event(struct tcp_socket *tcps, void *ptr,
       tcp_socket_event_t e)
@@ -448,99 +423,188 @@ event(struct tcp_socket *tcps, void *ptr,
   int len;
 
   if(e == TCP_SOCKET_CONNECTED) {
-    
-    PRINTF("https: TCP_CONNECTED event\n");
-    if(!SSL_Handshake_Completed)
-    {     
-      mbedtls_start_ssl_handshake();
+    printf("Connected\n");
+    /* If requested for https then start SSL handshake. */
+    if(strncmp(s->url, "https:", strlen("https:")) == 0) {
+        PRINTF("https: TCP_CONNECTED event\n");
+        if(!SSL_Handshake_Completed)
+        {     
+            mbedtls_start_ssl_handshake();
+        }
+        else {
+          /* SSL handshake completed. Send HTTP packet. */
+          if(parse_url(s->url, host, &port, path)) {
+             uint8_t temp_buff_http_packet[200];
+             uint8_t http_packet_buff_len = 0;
+             int ret, i;
+             memcpy(temp_buff_http_packet + http_packet_buff_len, s->postdata != NULL ? "POST " : "GET ", s->postdata != NULL ? strlen("POST ") : strlen("GET "));
+             http_packet_buff_len += s->postdata != NULL ? strlen("POST ") : strlen("GET ");
+             if(s->proxy_port != 0) {
+             /* If we are configured to route through a proxy, we should
+             provide the full URL as the path. */
+               memcpy(temp_buff_http_packet + http_packet_buff_len, s->url, strlen(s->url));
+               http_packet_buff_len += strlen(s->url);
+            } else { 
+               memcpy(temp_buff_http_packet + http_packet_buff_len, path, strlen(path));
+               http_packet_buff_len += strlen(path);
+            }
+            memcpy(temp_buff_http_packet + http_packet_buff_len, " HTTP/1.1\r\n", strlen(" HTTP/1.1\r\n"));
+            http_packet_buff_len += strlen(" HTTP/1.1\r\n");
+            memcpy(temp_buff_http_packet + http_packet_buff_len, "Connection: close\r\n", strlen("Connection: close\r\n"));
+            http_packet_buff_len += strlen("Connection: close\r\n");
+            memcpy(temp_buff_http_packet + http_packet_buff_len, "Host: ", strlen("Host: "));
+            http_packet_buff_len += strlen("Host: ");
+           /* If we have IPv6 host, add the '[' and the ']' characters
+           to the host. As in rfc2732. */
+           if(memchr(host, ':', MAX_HOSTLEN)) {
+             memcpy(temp_buff_http_packet + http_packet_buff_len, "[", strlen("["));
+             http_packet_buff_len += strlen("[");
+           }
+           memcpy(temp_buff_http_packet + http_packet_buff_len, host, strlen(host));
+           http_packet_buff_len += strlen(host);
+           if(memchr(host, ':', MAX_HOSTLEN)) {
+             memcpy(temp_buff_http_packet + http_packet_buff_len, "]", strlen("]"));
+             http_packet_buff_len += strlen("]");
+           }
+           memcpy(temp_buff_http_packet + http_packet_buff_len, "\r\n", strlen("\r\n"));
+           http_packet_buff_len += strlen("\r\n");
+           if(s->postdata != NULL) {
+             if(s->content_type) {
+               memcpy(temp_buff_http_packet + http_packet_buff_len, "\r\n", strlen("\r\n"));
+               http_packet_buff_len += strlen("\r\n");
+               memcpy(temp_buff_http_packet + http_packet_buff_len, "Content-Type: ", strlen("Content-Type: "));
+               http_packet_buff_len += strlen("Content-Type: ");
+               memcpy(temp_buff_http_packet + http_packet_buff_len, s->content_type, strlen(s->content_type));
+               http_packet_buff_len += strlen(s->content_type);
+               memcpy(temp_buff_http_packet + http_packet_buff_len, "\r\n", strlen("\r\n"));
+               http_packet_buff_len += strlen("\r\n");
+             }
+             memcpy(temp_buff_http_packet + http_packet_buff_len, "Content-Length: ", strlen("Content-Length: "));
+             http_packet_buff_len += strlen("Content-Length: ");
+             sprintf(str, "%u", s->postdatalen);
+             memcpy(temp_buff_http_packet + http_packet_buff_len, str, strlen(str));
+             http_packet_buff_len += strlen(str);
+             memcpy(temp_buff_http_packet + http_packet_buff_len, "\r\n", strlen("\r\n"));
+             http_packet_buff_len += strlen("\r\n");
+          } else if(s->length || s->pos > 0) {
+             memcpy(temp_buff_http_packet + http_packet_buff_len, "Range: bytes=", strlen("Range: bytes="));
+             http_packet_buff_len += strlen("Range: bytes=");
+          if(s->length) {
+            if(s->pos >= 0) {
+              sprintf(str, "%llu-%llu", s->pos, s->pos + s->length - 1);
+            } else {
+              sprintf(str, "-%llu", s->length);
+            }
+          } else {
+            sprintf(str, "%llu-", s->pos);
+          }
+          memcpy(temp_buff_http_packet + http_packet_buff_len, str, strlen(str));
+          http_packet_buff_len += strlen(str);
+          memcpy(temp_buff_http_packet + http_packet_buff_len, "\r\n", strlen("\r\n"));
+          http_packet_buff_len += strlen("\r\n");
+        }
+        memcpy(temp_buff_http_packet + http_packet_buff_len, "\r\n", strlen("\r\n"));
+        http_packet_buff_len += strlen("\r\n");
+        if(s->postdata != NULL && s->postdatalen) {
+          memcpy(temp_buff_http_packet + http_packet_buff_len, s->postdata, s->postdatalen);
+          http_packet_buff_len += s->postdatalen;
+          len = s->postdatalen;
+          s->postdata += len;
+          s->postdatalen -= len;
+        }
+        if(http_packet_buff_len){
+        ret = mbedtls_ssl_write(&ssl, temp_buff_http_packet, http_packet_buff_len);
+        if(ret <= 0){
+           PRINTF("ssl_write failed.\n");
+        }
+        else {
+           PRINTF("Sent http request of %d bytes: ", ret);
+           for(i = 0; i < http_packet_buff_len; i++){
+               PRINTF("%c",temp_buff_http_packet[i]);
+           }
+           PRINTF("\n");
+        }
+        }
+      } //if(parse_url)
+      } //else of (!SSL_Handshake_Completed)
     }
-//    else
-//    {
-//    
-//    printf("Connected\n");
-//    if(parse_url(s->url, host, &port, path)) {
-//      tcp_socket_send_str(tcps, s->postdata != NULL ? "POST " : "GET ");
-//      if(s->proxy_port != 0) {
-//        /* If we are configured to route through a proxy, we should
-//           provide the full URL as the path. */
-//        tcp_socket_send_str(tcps, s->url);
-//      } else {
-//        tcp_socket_send_str(tcps, path);
-//      }
-//      tcp_socket_send_str(tcps, " HTTP/1.1\r\n");
-//      tcp_socket_send_str(tcps, "Connection: close\r\n");
-//      tcp_socket_send_str(tcps, "Host: ");
-//      tcp_socket_send_str(tcps, host);
-//      tcp_socket_send_str(tcps, "\r\n");
-//      if(s->postdata != NULL) {
-//        if(s->content_type) {
-//          tcp_socket_send_str(tcps, "Content-Type: ");
-//          tcp_socket_send_str(tcps, s->content_type);
-//          tcp_socket_send_str(tcps, "\r\n");
-//        }
-//        tcp_socket_send_str(tcps, "Content-Length: ");
-//        sprintf(str, "%u", s->postdatalen);
-//        tcp_socket_send_str(tcps, str);
-//        tcp_socket_send_str(tcps, "\r\n");
-//      } else if(s->length || s->pos > 0) {
-//        tcp_socket_send_str(tcps, "Range: bytes=");
-//        if(s->length) {
-//          if(s->pos >= 0) {
-//            sprintf(str, "%llu-%llu", s->pos, s->pos + s->length - 1);
-//          } else {
-//            sprintf(str, "-%llu", s->length);
-//          }
-//        } else {
-//          sprintf(str, "%llu-", s->pos);
-//        }
-//        tcp_socket_send_str(tcps, str);
-//        tcp_socket_send_str(tcps, "\r\n");
-//      }
-//      tcp_socket_send_str(tcps, "\r\n");
-//      if(s->postdata != NULL && s->postdatalen) {
-//        len = tcp_socket_send(tcps, s->postdata, s->postdatalen);
-//        s->postdata += len;
-//        s->postdatalen -= len;
-//      }
-//    }
-//    parse_header_init(s);
-//  } else if(e == TCP_SOCKET_CLOSED) {
-//    call_callback(s, HTTP_SOCKET_CLOSED, NULL, 0);
-//    removesocket(s);
-//    printf("Closed\n");
-//  } else if(e == TCP_SOCKET_TIMEDOUT) {
-//    call_callback(s, HTTP_SOCKET_TIMEDOUT, NULL, 0);
-//    removesocket(s);
-//    printf("Timedout\n");
-//  } else if(e == TCP_SOCKET_ABORTED) {
-//    call_callback(s, HTTP_SOCKET_ABORTED, NULL, 0);
-//    removesocket(s);
-//    printf("Aborted\n");
-//  } else if(e == TCP_SOCKET_DATA_SENT) {
-//    if(s->postdata != NULL && s->postdatalen) {
-//      len = tcp_socket_send(tcps, s->postdata, s->postdatalen);
-//      s->postdata += len;
-//      s->postdatalen -= len;
-//    } else {
-//      start_timeout_timer(s);
-//    }
-//    }
+    else {
+    if(parse_url(s->url, host, &port, path)) {
+      tcp_socket_send_str(tcps, s->postdata != NULL ? "POST " : "GET ");
+      if(s->proxy_port != 0) {
+        /* If we are configured to route through a proxy, we should
+           provide the full URL as the path. */
+        tcp_socket_send_str(tcps, s->url);
+      } else {
+        tcp_socket_send_str(tcps, path);
+      }
+      tcp_socket_send_str(tcps, " HTTP/1.1\r\n");
+      tcp_socket_send_str(tcps, "Connection: close\r\n");
+      tcp_socket_send_str(tcps, "Host: ");
+      /* If we have IPv6 host, add the '[' and the ']' characters
+         to the host. As in rfc2732. */
+      if(memchr(host, ':', MAX_HOSTLEN)) {
+        tcp_socket_send_str(tcps, "[");
+      }
+      tcp_socket_send_str(tcps, host);
+      if(memchr(host, ':', MAX_HOSTLEN)) {
+        tcp_socket_send_str(tcps, "]");
+      }
+      tcp_socket_send_str(tcps, "\r\n");
+      if(s->postdata != NULL) {
+        if(s->content_type) {
+          tcp_socket_send_str(tcps, "Content-Type: ");
+          tcp_socket_send_str(tcps, s->content_type);
+          tcp_socket_send_str(tcps, "\r\n");
+        }
+        tcp_socket_send_str(tcps, "Content-Length: ");
+        sprintf(str, "%u", s->postdatalen);
+        tcp_socket_send_str(tcps, str);
+        tcp_socket_send_str(tcps, "\r\n");
+      } else if(s->length || s->pos > 0) {
+        tcp_socket_send_str(tcps, "Range: bytes=");
+        if(s->length) {
+          if(s->pos >= 0) {
+            sprintf(str, "%llu-%llu", s->pos, s->pos + s->length - 1);
+          } else {
+            sprintf(str, "-%llu", s->length);
+          }
+        } else {
+          sprintf(str, "%llu-", s->pos);
+        }
+        tcp_socket_send_str(tcps, str);
+        tcp_socket_send_str(tcps, "\r\n");
+      }
+      tcp_socket_send_str(tcps, "\r\n");
+      if(s->postdata != NULL && s->postdatalen) {
+        len = tcp_socket_send(tcps, s->postdata, s->postdatalen);
+        s->postdata += len;
+        s->postdatalen -= len;
+      }
+    } //if(parse_url)
+    }
+    parse_header_init(s);
+  } else if(e == TCP_SOCKET_CLOSED) {
+    call_callback(s, HTTP_SOCKET_CLOSED, NULL, 0);
+    removesocket(s);
+    printf("Closed\n");
+  } else if(e == TCP_SOCKET_TIMEDOUT) {
+    call_callback(s, HTTP_SOCKET_TIMEDOUT, NULL, 0);
+    removesocket(s);
+    printf("Timedout\n");
+  } else if(e == TCP_SOCKET_ABORTED) {
+    call_callback(s, HTTP_SOCKET_ABORTED, NULL, 0);
+    removesocket(s);
+    printf("Aborted\n");
+  } else if(e == TCP_SOCKET_DATA_SENT) {
+    if(s->postdata != NULL && s->postdatalen) {
+      len = tcp_socket_send(tcps, s->postdata, s->postdatalen);
+      s->postdata += len;
+      s->postdatalen -= len;
+    } else {
+      start_timeout_timer(s);
+    }
   }
-
-  else if(e == TCP_SOCKET_DATA_SENT) {
-    PRINTF("https: TCP_DATA_SENT event\n");
-    if(!SSL_Handshake_Completed)
-    {
-      //TO DO: move this to SharkSSL_Interface
-      //if( SslDataLen) {
-      //  len = tcp_socket_send(tcps, SslData, SslDataLen);
-      //  SslData += len;
-      //  SslDataLen -= len;
-     // } else {
-     //   start_timeout_timer(s);
-      //}
-    }
-    }
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -587,27 +651,7 @@ start_request(struct http_socket *s)
         }
       }
     }
-//    tcp_socket_connect(&s->s, &ip6addr, port);
-#if 1
-    ip6addr.u8[0] = 0xaa;
-    ip6addr.u8[1] = 0xaa;
-    ip6addr.u8[2] = 0x00;
-    ip6addr.u8[3] = 0x00;
-    ip6addr.u8[4] = 0x00;
-    ip6addr.u8[5] = 0x00;
-    ip6addr.u8[6] = 0x00;
-    ip6addr.u8[7] = 0x00;
-    ip6addr.u8[8] = 0x00;
-    ip6addr.u8[9] = 0x00;
-    ip6addr.u8[10] = 0x00;
-    ip6addr.u8[11] = 0x00;
-    ip6addr.u8[12] = 0x00;
-    ip6addr.u8[13] = 0x00;
-    ip6addr.u8[14] = 0x00;
-    ip6addr.u8[15] = 0x01;
-#endif
-
-    tcp_socket_connect(&s->s, &ip6addr, 443);//80);//8888);//
+    tcp_socket_connect(&s->s, &ip6addr, port);
     return HTTP_SOCKET_OK;
   } else {
     return HTTP_SOCKET_ERR;
