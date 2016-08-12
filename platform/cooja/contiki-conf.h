@@ -259,6 +259,13 @@ typedef unsigned long rtimer_clock_t;
 #define IEEE802154_CONF_PANID          0xABCD
 #define NETSTACK_RADIO_MAX_PAYLOAD_LEN 125
 
+/* Configurations related to HTTP socket*/
+#define HTTP_CONF_MAX_HTTP_SOCKETS      0
+#define HTTP_CONF_MAX_HTTPS_SOCKETS     1
+#define HTTP_CONF_TOTAL_HTTP_SOCKETS    (HTTP_CONF_MAX_HTTP_SOCKETS + HTTP_CONF_MAX_HTTPS_SOCKETS)
+#define HTTP_CONF_MAX_SSL_CONTEXT       HTTP_CONF_MAX_HTTPS_SOCKETS
+#define HTTP_CONF_MAX_POST_DATA         (HTTP_CONF_MAX_HTTP_SOCKETS + HTTP_CONF_MAX_HTTPS_SOCKETS)
+
 /* include the project config */
 /* PROJECT_CONF_H might be defined in the project Makefile */
 #ifdef PROJECT_CONF_H

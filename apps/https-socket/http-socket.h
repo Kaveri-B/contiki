@@ -96,6 +96,8 @@ struct http_socket {
   uint8_t header_received;
   uint64_t bodylen;
   const char *content_type;
+  uint8_t used;
+  struct ssl_info *ssl_info;
 };
 
 void http_socket_init(struct http_socket *s);

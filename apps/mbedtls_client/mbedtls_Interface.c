@@ -38,37 +38,30 @@
 bool SSL_Handshake_Completed = false;
 
 /************** Static variables declaration **********************************/
-static unsigned char *g_ssl_rcvd_data_ptr = NULL;
-static size_t g_ssl_rcvd_data_len = 0;
 
 /************** External variables declaration ********************************/
-extern uip_ip6addr_t g_server_ip6addr;
-extern struct http_socket g_https_socket;
-extern unsigned int dbg_g_mbedtls_net_recv;
-
-/************** External functions prototype **********************************/
-extern int mbedtls_ssl_data_rcvd(uint8_t *rcvd_data_ptr, int rcvd_data_len);
 
 /******************* Global function definations ******************************/
 int mbedtls_net_recv( void *ctx, unsigned char *buf, size_t len )
 {
   int ret = 0;
+  struct ssl_info *ssl_info = (struct ssl_info *)ctx;
   
-  if((g_ssl_rcvd_data_ptr == NULL) || (g_ssl_rcvd_data_len == 0)){
+  if((ssl_info->rcvd_data_ptr == NULL) || (ssl_info->rcvd_data_len == 0)){
     return MBEDTLS_ERR_SSL_WANT_READ;
   }
   
-  if(len < g_ssl_rcvd_data_len) {
-    memcpy(buf, g_ssl_rcvd_data_ptr, len);
-    g_ssl_rcvd_data_len -= len;
-    g_ssl_rcvd_data_ptr += len;
+  if(len < ssl_info->rcvd_data_len) {
+    memcpy(buf, ssl_info->rcvd_data_ptr, len);
+    ssl_info->rcvd_data_len -= len;
+    ssl_info->rcvd_data_ptr += len;
     ret = len;
   }
   else {
-    memcpy(buf, g_ssl_rcvd_data_ptr, g_ssl_rcvd_data_len);
-    g_ssl_rcvd_data_ptr = NULL;
-    ret = g_ssl_rcvd_data_len;
-    g_ssl_rcvd_data_len = 0;
+    memcpy(buf, ssl_info->rcvd_data_ptr, ssl_info->rcvd_data_len);
+    ssl_info->rcvd_data_ptr = NULL;
+    ret = ssl_info->rcvd_data_len;
+    ssl_info->rcvd_data_len = 0;
   }
   return (ret);
 }
@@ -76,22 +69,25 @@ int mbedtls_net_recv( void *ctx, unsigned char *buf, size_t len )
 
 int mbedtls_net_send( void *ctx, const unsigned char *buf, size_t len )
 {
-  tcp_socket_send(&g_https_socket.s, buf, len);
+  struct ssl_info *ssl_info = (struct ssl_info *)ctx;
+  struct http_socket *http_socket = (struct http_socket *)ssl_info->app_struct_ptr;
+
+  tcp_socket_send(&http_socket->s, buf, len);
   return len;
 }
 
 /*----------------------------------------------------------------------------*/
-int mbedtls_handle_rcvd_data(uint8_t *rcvd_data_ptr, int rcvd_data_len)
+int mbedtls_handle_rcvd_data(struct ssl_info *ssl_info, uint8_t *rcvd_data_ptr, int rcvd_data_len)
 {
   int ret = -1; 
-  g_ssl_rcvd_data_len = rcvd_data_len;
-  g_ssl_rcvd_data_ptr = rcvd_data_ptr;
-  if(SSL_Handshake_Completed){
-    ret = mbedtls_ssl_data_rcvd(rcvd_data_ptr, rcvd_data_len);
+  ssl_info->rcvd_data_len = rcvd_data_len;
+  ssl_info->rcvd_data_ptr = rcvd_data_ptr;
+  if(ssl_info->ssl_handshake_done){
+    ret = mbedtls_ssl_read( ssl_info->ssl, rcvd_data_ptr, rcvd_data_len );
     return ret;
   }
   else {
-    mbedtls_start_ssl_handshake();
+    mbedtls_start_ssl_handshake(ssl_info);
     return 0;
   }
 }

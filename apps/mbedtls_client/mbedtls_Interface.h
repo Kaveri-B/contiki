@@ -116,15 +116,25 @@ enum mbedtls_notify_events {
   MBEDTLS_EVENT_SSL_STARTED,
   MBEDTLS_EVENT_SSL_COMPLETED
 };
-extern bool SSL_Handshake_Completed;
-extern mbedtls_ssl_context ssl;
+
+struct ssl_info {
+  uint8_t used;
+  uint8_t ssl_handshake_done;
+  uint8_t app_initial_data_sent;
+  mbedtls_ssl_context *ssl;
+  mbedtls_ssl_config *conf;
+  void *app_struct_ptr;
+  uint8_t *rcvd_data_ptr;
+  int rcvd_data_len;
+};
 
 /* APIs provided by mbedtls_client_app. */
 int mbedtls_client_init(void);
-void mbedtls_start_ssl_handshake(void);
+void mbedtls_start_ssl_handshake(struct ssl_info *ssl_info);
+int mbedtls_configure_ssl_info(struct ssl_info *ssl_info);
 
 /* APIs provided by mbedtls_Interface*/
-int mbedtls_handle_rcvd_data(uint8_t *rcvd_data_ptr, int rcvd_data_len);
+int mbedtls_handle_rcvd_data(struct ssl_info *ssl_info, uint8_t *rcvd_data_ptr, int rcvd_data_len);
 
 /* Prototype of mbedTLS client application callbacks */
 void mbedtls_client_app_notification(uint8_t mbedtls_event);
