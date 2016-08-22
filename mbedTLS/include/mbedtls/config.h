@@ -346,7 +346,7 @@
  *
  * Enable Counter Block Cipher mode (CTR) for symmetric ciphers.
  */
-#define MBEDTLS_CIPHER_MODE_CTR
+//#define MBEDTLS_CIPHER_MODE_CTR
 
 /**
  * \def MBEDTLS_CIPHER_NULL_CIPHER
@@ -392,7 +392,7 @@
  *
  * Enable padding modes in the cipher layer.
  */
-//#define MBEDTLS_CIPHER_PADDING_PKCS7
+#define MBEDTLS_CIPHER_PADDING_PKCS7
 //#define MBEDTLS_CIPHER_PADDING_ONE_AND_ZEROS
 //#define MBEDTLS_CIPHER_PADDING_ZEROS_AND_LEN
 //#define MBEDTLS_CIPHER_PADDING_ZEROS
@@ -455,7 +455,7 @@
  *
  * Comment this macro to disable NIST curves optimisation.
  */
-//#define MBEDTLS_ECP_NIST_OPTIM
+#define MBEDTLS_ECP_NIST_OPTIM
 
 /**
  * \def MBEDTLS_ECDSA_DETERMINISTIC
@@ -469,7 +469,7 @@
  *
  * Comment this macro to disable deterministic ECDSA.
  */
-//#define MBEDTLS_ECDSA_DETERMINISTIC
+#define MBEDTLS_ECDSA_DETERMINISTIC
 
 /**
  * \def MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
@@ -535,7 +535,7 @@
  *      MBEDTLS_TLS_ECDHE_PSK_WITH_3DES_EDE_CBC_SHA
  *      MBEDTLS_TLS_ECDHE_PSK_WITH_RC4_128_SHA
  */
-//#define MBEDTLS_KEY_EXCHANGE_ECDHE_PSK_ENABLED
+#define MBEDTLS_KEY_EXCHANGE_ECDHE_PSK_ENABLED
 
 /**
  * \def MBEDTLS_KEY_EXCHANGE_RSA_PSK_ENABLED
@@ -856,7 +856,7 @@
  *
  * Uncomment this macro to let the buffer allocator print out error messages.
  */
-//#define MBEDTLS_MEMORY_DEBUG
+#define MBEDTLS_MEMORY_DEBUG
 
 /**
  * \def MBEDTLS_MEMORY_BACKTRACE
@@ -888,7 +888,7 @@
  *
  * This enables support for PKCS#1 v1.5 operations.
  */
-//#define MBEDTLS_PKCS1_V15
+#define MBEDTLS_PKCS1_V15
 
 /**
  * \def MBEDTLS_PKCS1_V21
@@ -899,7 +899,7 @@
  *
  * This enables support for RSAES-OAEP and RSASSA-PSS operations.
  */
-//#define MBEDTLS_PKCS1_V21
+#define MBEDTLS_PKCS1_V21
 
 /**
  * \def MBEDTLS_RSA_NO_CRT
@@ -992,7 +992,7 @@
  *
  * Comment this macro to disable support for Encrypt-then-MAC
  */
-//#define MBEDTLS_SSL_ENCRYPT_THEN_MAC
+#define MBEDTLS_SSL_ENCRYPT_THEN_MAC
 
 /** \def MBEDTLS_SSL_EXTENDED_MASTER_SECRET
  *
@@ -1010,7 +1010,7 @@
  *
  * Comment this macro to disable support for Extended Master Secret.
  */
-//#define MBEDTLS_SSL_EXTENDED_MASTER_SECRET
+#define MBEDTLS_SSL_EXTENDED_MASTER_SECRET
 
 /**
  * \def MBEDTLS_SSL_FALLBACK_SCSV
@@ -1064,7 +1064,7 @@
  *
  * Comment this to disable support for renegotiation.
  */
-//#define MBEDTLS_SSL_RENEGOTIATION
+#define MBEDTLS_SSL_RENEGOTIATION
 
 /**
  * \def MBEDTLS_SSL_SRV_SUPPORT_SSLV2_CLIENT_HELLO
@@ -1129,7 +1129,7 @@
  *
  * Comment this macro to disable support for TLS 1.1 / DTLS 1.0
  */
-#define MBEDTLS_SSL_PROTO_TLS1_1
+//#define MBEDTLS_SSL_PROTO_TLS1_1
 
 /**
  * \def MBEDTLS_SSL_PROTO_TLS1_2
@@ -1165,7 +1165,7 @@
  *
  * Comment this macro to disable support for ALPN.
  */
-//#define MBEDTLS_SSL_ALPN
+#define MBEDTLS_SSL_ALPN
 
 /**
  * \def MBEDTLS_SSL_DTLS_ANTI_REPLAY
@@ -1249,7 +1249,7 @@
  *
  * Comment this macro to disable support for key export
  */
-//#define MBEDTLS_SSL_EXPORT_KEYS
+#define MBEDTLS_SSL_EXPORT_KEYS
 
 /**
  * \def MBEDTLS_SSL_SERVER_NAME_INDICATION
@@ -1304,7 +1304,7 @@
  *
  * Comment this to disable run-time checking and save ROM space
  */
-//#define MBEDTLS_VERSION_FEATURES
+#define MBEDTLS_VERSION_FEATURES
 
 /**
  * \def MBEDTLS_X509_ALLOW_EXTENSIONS_NON_V3
@@ -1353,7 +1353,7 @@
  *
  * Comment to skip extendedKeyUsage checking for certificates.
  */
-//#define MBEDTLS_X509_CHECK_EXTENDED_KEY_USAGE
+#define MBEDTLS_X509_CHECK_EXTENDED_KEY_USAGE
 
 /**
  * \def MBEDTLS_X509_RSASSA_PSS_SUPPORT
@@ -1407,7 +1407,7 @@
  *
  * This modules adds support for the AES-NI instructions on x86-64
  */
-#define MBEDTLS_AESNI_C
+//#define MBEDTLS_AESNI_C
 
 /**
  * \def MBEDTLS_AES_C
@@ -1835,7 +1835,7 @@
  * This module enables the AES-GCM and CAMELLIA-GCM ciphersuites, if other
  * requisites are enabled as well.
  */
-//#define MBEDTLS_GCM_C
+#define MBEDTLS_GCM_C
 
 /**
  * \def MBEDTLS_HAVEGE_C
@@ -1872,7 +1872,7 @@
  *
  * Uncomment to enable the HMAC_DRBG random number geerator.
  */
-//#define MBEDTLS_HMAC_DRBG_C
+#define MBEDTLS_HMAC_DRBG_C
 
 /**
  * \def MBEDTLS_MD_C
@@ -1923,7 +1923,7 @@
  * This module is required for SSL/TLS and X.509.
  * PEM_PARSE uses MD5 for decrypting encrypted keys.
  */
-#define MBEDTLS_MD5_C
+//#define MBEDTLS_MD5_C
 
 /**
  * \def MBEDTLS_MEMORY_BUFFER_ALLOC_C
@@ -2087,7 +2087,7 @@
  *
  * This module adds support for the PKCS#5 functions.
  */
-#define MBEDTLS_PKCS5_C
+//#define MBEDTLS_PKCS5_C
 
 /**
  * \def MBEDTLS_PKCS11_C
@@ -2118,7 +2118,7 @@
  *
  * This module enables PKCS#12 functions.
  */
-#define MBEDTLS_PKCS12_C
+//#define MBEDTLS_PKCS12_C
 
 /**
  * \def MBEDTLS_PLATFORM_C
@@ -2215,7 +2215,7 @@
  *
  * This module adds support for SHA-384 and SHA-512.
  */
-//#define MBEDTLS_SHA512_C
+#define MBEDTLS_SHA512_C
 
 /**
  * \def MBEDTLS_SSL_CACHE_C
@@ -2227,7 +2227,7 @@
  *
  * Requires: MBEDTLS_SSL_CACHE_C
  */
-//#define MBEDTLS_SSL_CACHE_C
+#define MBEDTLS_SSL_CACHE_C
 
 /**
  * \def MBEDTLS_SSL_COOKIE_C
@@ -2237,7 +2237,7 @@
  * Module:  library/ssl_cookie.c
  * Caller:
  */
-//#define MBEDTLS_SSL_COOKIE_C
+#define MBEDTLS_SSL_COOKIE_C
 
 /**
  * \def MBEDTLS_SSL_TICKET_C
@@ -2249,7 +2249,7 @@
  *
  * Requires: MBEDTLS_CIPHER_C
  */
-//#define MBEDTLS_SSL_TICKET_C
+#define MBEDTLS_SSL_TICKET_C
 
 /**
  * \def MBEDTLS_SSL_CLI_C
@@ -2410,7 +2410,7 @@
  *
  * This module is used for reading X.509 certificate request.
  */
-#define MBEDTLS_X509_CSR_PARSE_C
+//#define MBEDTLS_X509_CSR_PARSE_C
 
 /**
  * \def MBEDTLS_X509_CREATE_C
@@ -2423,7 +2423,7 @@
  *
  * This module is the basis for creating X.509 certificates and CSRs.
  */
-#define MBEDTLS_X509_CREATE_C
+//#define MBEDTLS_X509_CREATE_C
 
 /**
  * \def MBEDTLS_X509_CRT_WRITE_C
@@ -2436,7 +2436,7 @@
  *
  * This module is required for X.509 certificate creation.
  */
-#define MBEDTLS_X509_CRT_WRITE_C
+//#define MBEDTLS_X509_CRT_WRITE_C
 
 /**
  * \def MBEDTLS_X509_CSR_WRITE_C
@@ -2449,7 +2449,7 @@
  *
  * This module is required for X.509 certificate request writing.
  */
-#define MBEDTLS_X509_CSR_WRITE_C
+//#define MBEDTLS_X509_CSR_WRITE_C
 
 /**
  * \def MBEDTLS_XTEA_C
