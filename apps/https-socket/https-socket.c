@@ -303,10 +303,13 @@ input(struct tcp_socket *tcps, void *ptr,
   }
   else {
     if((strncmp(s->url, "https:", strlen("https:")) == 0) &&
-       s->ssl_info->ssl_handshake_done && 
-       !s->ssl_info->app_initial_data_sent) {
+       s->ssl_info->ssl_handshake_done) {  
+         PRINTF("input: ssl_handshake done!\n");
+         if(!s->ssl_info->app_initial_data_sent) {
+         PRINTF("input: send http_initial data\n");
          /* Send HTTP request */
          https_send_initial_data(s);
+         }
     }
   }  
   start_timeout_timer(s);

@@ -111,6 +111,17 @@ enum {
   TCP_SOCKET_FLAGS_CLOSING   = 0x02,
 };
 
+typedef struct tcp_socket_info_tag {
+  uint8_t used;
+  uint8_t socket_id;
+  uint8_t tcp_listen;
+  uint16_t inputdata_len;
+  uint16_t outputdata_len;
+  uint8_t inputbuf[UIP_TCP_MSS];
+  uint8_t outputbuf[UIP_TCP_MSS];
+  struct tcp_socket tcp_socket;
+}tcp_socket_info_t;
+
 /**
  * \brief      Register a TCP socket
  * \param s    A pointer to a TCP socket

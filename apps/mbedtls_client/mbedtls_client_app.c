@@ -36,17 +36,17 @@ unsigned char alloc_buf[25000];
 #endif
 struct options opt;
 /* Structure Variable declaration for mbedTLS client session */
-static mbedtls_entropy_context entropy;
-static mbedtls_ctr_drbg_context ctr_drbg;
+mbedtls_entropy_context entropy;
+mbedtls_ctr_drbg_context ctr_drbg;
 
 #if defined(MBEDTLS_TIMING_C)
 //   mbedtls_timing_delay_context timer;
 #endif
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
 static uint32_t flags;
-static mbedtls_x509_crt cacert;
-static mbedtls_x509_crt clicert;
-static mbedtls_pk_context pkey;
+ mbedtls_x509_crt cacert;
+ mbedtls_x509_crt clicert;
+ mbedtls_pk_context pkey;
 #endif
 //static char *q;
 //static const int *list;
@@ -275,6 +275,7 @@ int mbedtls_configure_ssl_info(struct ssl_info *ssl_info)
   mbedtls_ssl_context *ssl = ssl_info->ssl;
   mbedtls_ssl_config *conf = ssl_info->conf;
   ssl_info->ssl_handshake_done = 0;
+  ssl_info->app_initial_data_sent = 0;
   /* Configure SSL structures */
   mbedtls_ssl_init( ssl );
   mbedtls_ssl_config_init( conf );

@@ -84,6 +84,21 @@ typedef enum RFModuleHttpMethods_tag {
   RFMODULE_HTTP_METHOD_GET
 }RFModuleHttpMethods_t;
 
+
+typedef enum RFModuleTCPNotifications_tag {
+  RFMODULE_TCP_NOTIFY_SOCKET_OPENED,
+  RFMODULE_TCP_NOTIFY_SOCKET_CLOSED,
+  RFMODULE_TCP_NOTIFY_SOCKET_MEM_ALLOC_FAILED,
+  RFMODULE_TCP_NOTIFY_DATA_SENT,
+  RFMODULE_TCP_NOTIFY_DATA_RCVD,
+  RFMODULE_TCP_NOTIFY_SOCKET_CONNECTED,
+  RFMODULE_TCP_NOTIFY_SOCKET_TIMEDOUT,
+  RFMODULE_TCP_NOTIFY_SOCKET_ABORTED,
+  RFMODULE_TCP_NOTIFY_INVALID_SOCKET_ID,
+  RFMODULE_TCP_NOTIFY_CONNECTION_CLOSED,
+  RFMODULE_TCP_NOTIFY_LENGTH_EXCEEDED,
+}RFModuleTCPNotifications_t;
+
 /***************** External variables declaration *****************************/
 extern NodeType_t g_node_type;
 extern RPL_MOP_Type_t g_RPL_MOP_type;
@@ -106,6 +121,8 @@ static mbedtls_ssl_context ssl[HTTP_CONF_MAX_SSL_CONTEXT];
 static mbedtls_ssl_config conf[HTTP_CONF_MAX_SSL_CONTEXT];
 static uint8_t g_device_joined;
 
+tcp_socket_info_t tcp_socket_array[TCP_SOCKET_MAX_NUM_CONNECTIONS];
+
 /***************** Global variables declaration *******************************/
 uint8_t g_dbg = 0;
 
@@ -119,6 +136,15 @@ static void RFM_handle_http_callback(struct http_socket *s,
                                      const uint8_t *data,
                                      uint16_t datalen);
 static void RFM_free_http_socket(struct http_socket *http_socket);
+static void RFM_http_socket_close(struct http_socket *s);
+
+static tcp_socket_info_t * RFM_get_tcp_socket(uint8_t *socket_id);
+static void RFM_free_tcp_socket(tcp_socket_info_t *tcp_socket_info);
+static int RFM_TCP_input_callback(struct tcp_socket *tcps, void *ptr,
+      const uint8_t *inputptr, int inputdatalen);
+static void RFM_TCP_event_callback(struct tcp_socket *tcps, void *ptr,
+      tcp_socket_event_t e);
+static tcp_socket_info_t * RFM_get_tcp_socket_info(uint8_t socket_id);
 
 /***************** Process declarations ***************************************/
 PROCESS(udp_client_process, "UDP client process");
@@ -227,6 +253,7 @@ static struct http_socket * RFM_get_http_socket(uint8_t *http_socket_id)
   
   for(i = 0; i < HTTP_CONF_TOTAL_HTTP_SOCKETS; i++) {
     if(http_socket_array[i].used == 0) {
+      memset(&http_socket_array[i], 0, sizeof(http_socket_array[i]));
       http_socket_array[i].used = 1;
       http_socket = &http_socket_array[i];
       *http_socket_id = i;
@@ -249,6 +276,14 @@ static void RFM_free_http_socket(struct http_socket *http_socket)
 }
 /*----------------------------------------------------------------------------*/
 
+static void RFM_http_socket_close(struct http_socket *s)
+{
+  /* Give indication to host as http socket closed.*/
+  PRINTF("HTTP_NOTIFY: HTTP_SOCKET_CLOSED\n");
+  RFM_free_http_socket(s);
+}
+/*----------------------------------------------------------------------------*/
+
 static void set_prefix_64(uip_ipaddr_t *prefix_64)
 {
   rpl_dag_t *dag;
@@ -266,6 +301,25 @@ static void set_prefix_64(uip_ipaddr_t *prefix_64)
   }
 }
 /*----------------------------------------------------------------------------*/
+
+#include "mbedtls/platform.h"
+#include "mbedtls/config.h"
+#include "mbedtls/net.h"
+#include "mbedtls/ssl.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/certs.h"
+#include "mbedtls/x509.h"
+#include "mbedtls/x509_crt.h"
+#if defined(MBEDTLS_X509_CRT_PARSE_C)
+static uint32_t flags;
+extern mbedtls_x509_crt cacert;
+extern mbedtls_x509_crt clicert;
+extern mbedtls_pk_context pkey;
+#endif
+extern mbedtls_entropy_context entropy;
+extern mbedtls_ctr_drbg_context ctr_drbg;
+
 static void RFM_handle_http_callback(struct http_socket *s,
                               void *ptr,
                               http_socket_event_t ev,
@@ -297,6 +351,16 @@ static void RFM_handle_http_callback(struct http_socket *s,
   }
   else if(ev == HTTP_SOCKET_CLOSED) {
     PRINTF("HTTP socket closed\n");
+#if defined(MBEDTLS_X509_CRT_PARSE_C)
+    mbedtls_x509_crt_free( &clicert );
+    mbedtls_x509_crt_free( &cacert );
+    mbedtls_pk_free( &pkey );
+#endif
+    mbedtls_ssl_free( s->ssl_info->ssl );
+    mbedtls_ssl_config_free( s->ssl_info->conf );
+    mbedtls_ctr_drbg_free( &ctr_drbg );
+    mbedtls_entropy_free( &entropy );
+    RFM_http_socket_close(s);
   }
 }
 /*----------------------------------------------------------------------------*/
@@ -441,6 +505,7 @@ static void RFM_handle_http_req_cmd(char *str)
     ssl_info[ssl_security_index].used = 1;
     ssl_info[ssl_security_index].ssl = &ssl[ssl_security_index];
     ssl_info[ssl_security_index].conf = &conf[ssl_security_index];
+    mbedtls_client_init();
     mbedtls_configure_ssl_info(&ssl_info[ssl_security_index]);
 
     /* Link security info with http socket structure. */
@@ -455,6 +520,91 @@ static void RFM_handle_http_req_cmd(char *str)
   http_socket_init(http_socket);
   http_socket_post(http_socket, url, NULL, 0, NULL, RFM_handle_http_callback, NULL); 
 }
+/*----------------------------------------------------------------------------*/
+
+static uint16_t rport = 8169;
+static uint16_t lport = 8169;
+static void RFM_handle_tcp_socket_req(char *str)
+{
+  tcp_socket_info_t *tcp_socket_info_ptr;
+  uint8_t tcp_socket_id;
+  
+  tcp_socket_info_ptr = RFM_get_tcp_socket(&tcp_socket_id);
+  if(tcp_socket_info_ptr == NULL){
+    /* Failed to allocate memory for new TCP socket.*/
+    PRINTF("TCP_SOCKET_NOTIFY: SOCKET_MEM_ALLOC_FAILED \n");
+    return;        
+  }
+  tcp_socket_info_ptr->socket_id = tcp_socket_id;
+   /* TCP listen value */
+  if (str[0] == '1'){
+      tcp_socket_info_ptr->tcp_listen = 1;
+  }
+  else{
+     tcp_socket_info_ptr->tcp_listen = 0;
+  }
+  /* Register TCP socket.*/
+  tcp_socket_register(&tcp_socket_info_ptr->tcp_socket, tcp_socket_info_ptr,
+    tcp_socket_info_ptr->inputbuf, sizeof(tcp_socket_info_ptr->inputbuf),
+    tcp_socket_info_ptr->outputbuf, sizeof(tcp_socket_info_ptr->outputbuf),
+    RFM_TCP_input_callback,
+    RFM_TCP_event_callback);
+  /* Based on listen value start connect or listen.*/
+  if(tcp_socket_info_ptr->tcp_listen == 1){
+     tcp_socket_listen(&tcp_socket_info_ptr->tcp_socket, lport);
+  }
+  else {
+    tcp_socket_connect(&tcp_socket_info_ptr->tcp_socket,
+          &server_ipaddr, rport);
+  }
+  PRINTF("TCP_SOCKET_NOTIFY: SOCKET_OPENED. ID: %d\n", tcp_socket_id);
+}
+/*----------------------------------------------------------------------------*/
+
+static void RFM_handle_send_tcp_data(char *str)
+{
+  tcp_socket_info_t *tcp_socket_info_ptr;
+  uint8_t tcp_socket_id;
+  char tcp_socket_id_str[2];
+  uint16_t str_count;
+  
+  tcp_socket_id_str[0] = str[0];
+  tcp_socket_id_str[1] = '\0';
+  tcp_socket_id = atoi(tcp_socket_id_str);
+  tcp_socket_info_ptr = RFM_get_tcp_socket_info(tcp_socket_id);
+  if(tcp_socket_info_ptr == NULL) {
+    PRINTF("TCP_SOCKET_NOTIFY: INVALID_SOCKET_ID %d\n",tcp_socket_id);
+    return ;
+  }
+  //@TBD
+  str = str + 2;
+  tcp_socket_info_ptr->outputdata_len = 0;
+  for(str_count = 0; str[str_count] != ' '; str_count++, tcp_socket_info_ptr->outputdata_len++) {
+    tcp_socket_info_ptr->outputbuf[str_count] = str[str_count];
+  }
+  tcp_socket_send(&tcp_socket_info_ptr->tcp_socket,
+                tcp_socket_info_ptr->outputbuf, tcp_socket_info_ptr->outputdata_len);
+  
+}
+/*----------------------------------------------------------------------------*/
+static void RFM_handle_tcp_socket_close_req(char *str)
+{
+  tcp_socket_info_t *tcp_socket_info_ptr;
+  uint8_t tcp_socket_id;
+  char tcp_socket_id_str[2];
+
+  tcp_socket_id_str[0] = str[0];
+  tcp_socket_id_str[1] = '\0';
+  tcp_socket_id = atoi(tcp_socket_id_str);
+  tcp_socket_info_ptr = RFM_get_tcp_socket_info(tcp_socket_id);
+  if(tcp_socket_info_ptr == NULL) {
+    PRINTF("TCP_SOCKET_NOTIFY: INVALID_SOCKET_ID %d\n",tcp_socket_id);
+    return ;
+  }
+  tcp_socket_info_ptr->tcp_listen = 0;
+  tcp_socket_close(&tcp_socket_info_ptr->tcp_socket); 
+}
+
 /*----------------------------------------------------------------------------*/
 
 /***************** Process definations ****************************************/
@@ -675,6 +825,15 @@ PROCESS_THREAD(uart_handler_process, ev, data)
         }
         RFM_handle_http_req_cmd(&str[9]);
       }
+      else if(memcmp(str, "TCP_SOCKET_REQ", 14) == 0) {
+	RFM_handle_tcp_socket_req(&str[15]);
+      }
+      else if(memcmp(str, "SEND_TCP_DATA", 13) == 0) {
+        RFM_handle_send_tcp_data(&str[14]);
+      }
+      else if(memcmp(str, "TCP_SOCKET_CLOSE_REQ", 20) == 0) {
+        RFM_handle_tcp_socket_close_req(&str[21]);
+      }
       else if(memcmp(str, "DEBUG", 5) == 0){
 	PRINTF("sizeof size_t: %d\n", sizeof(size_t));
       }
@@ -717,4 +876,108 @@ void rpl_join_indication(unsigned int joined)
       PRINTF("JOIN_NETWORK_CONF\n");
     }
   }
+}
+/*---------------------------------------------------------------------------*/
+
+static tcp_socket_info_t * RFM_get_tcp_socket(uint8_t *socket_id)
+{
+  uint8_t array_count;
+  tcp_socket_info_t *tcp_socket_info = NULL;
+  
+  for(array_count = 0; array_count < TCP_SOCKET_MAX_NUM_CONNECTIONS; array_count++) {
+    if (tcp_socket_array[array_count].used == 0) {
+      memset(&tcp_socket_array[array_count], 0, sizeof(tcp_socket_array[array_count]));
+      tcp_socket_array[array_count].used = 1;
+      tcp_socket_info = &tcp_socket_array[array_count];
+      *socket_id = array_count;
+      break;
+    }
+  }
+  return tcp_socket_info;
+}
+/*----------------------------------------------------------------------------*/
+
+static void RFM_free_tcp_socket(tcp_socket_info_t *tcp_socket_info)
+{
+  uint8_t array_count;
+  
+  for(array_count = 0; array_count < TCP_SOCKET_MAX_NUM_CONNECTIONS; array_count++) {
+    if ((tcp_socket_array[array_count].used == 1) 
+         && (&tcp_socket_array[array_count] == tcp_socket_info)) {
+      tcp_socket_array[array_count].used = 0;
+      break;
+    }
+  }
+}
+/*----------------------------------------------------------------------------*/
+
+static int RFM_TCP_input_callback(struct tcp_socket *tcps, void *ptr,
+      const uint8_t *inputptr, int inputdatalen)
+{
+  tcp_socket_info_t *tcp_socket_info = (tcp_socket_info_t *)ptr;
+  uint16_t i;  
+
+  /* Give indication as TCP data received.*/
+  PRINTF("TCP_SOCKET_NOTIFY: DATA_RCVD. ID: %d\n",tcp_socket_info->socket_id);
+  for(i = 0; i <inputdatalen; i++){
+    PRINTF("%c",inputptr[i]);
+  }
+  return 0;
+}
+/*----------------------------------------------------------------------------*/
+
+static void RFM_TCP_event_callback(struct tcp_socket *tcps, void *ptr,
+      tcp_socket_event_t e)
+{
+  tcp_socket_info_t *tcp_socket_info = (tcp_socket_info_t *)ptr;
+  
+  /* Give generated TCP event to host.*/
+  PRINTF("TCP_SOCKET_NOTIFY: ");
+  switch(e) {
+    case TCP_SOCKET_CONNECTED:
+      PRINTF("SOCKET_CONNECTED. ID: %d\n",tcp_socket_info->socket_id);
+      break;
+    case TCP_SOCKET_CLOSED:
+      if(tcp_socket_info->tcp_listen){
+        /* If TCP socket is opened for listen then, start listening on next 
+        connection. */
+        tcp_socket_listen(&tcp_socket_info->tcp_socket, tcp_socket_info->tcp_socket.listen_port);
+        PRINTF("CONNECTION_CLOSED. ID: %d\n",tcp_socket_info->socket_id);
+      }
+      else {
+        tcp_socket_unregister(&tcp_socket_info->tcp_socket);
+        RFM_free_tcp_socket(tcp_socket_info);
+        PRINTF("SOCKET_CLOSED. ID: %d\n",tcp_socket_info->socket_id);
+      }
+      break;
+    case TCP_SOCKET_TIMEDOUT:
+      PRINTF("SOCKET_TIMEDOUT. ID: %d\n",tcp_socket_info->socket_id);
+      break;
+    case TCP_SOCKET_ABORTED:
+      PRINTF("SOCKET_ABORTED. ID: %d\n",tcp_socket_info->socket_id);
+      tcp_socket_unregister(&tcp_socket_info->tcp_socket);
+      RFM_free_tcp_socket(tcp_socket_info);
+      break;
+    case TCP_SOCKET_DATA_SENT:
+      PRINTF("DATA_SENT. ID: %d\n",tcp_socket_info->socket_id);
+      break;
+    default:
+      break;
+  }
+}
+/*----------------------------------------------------------------------------*/
+
+static tcp_socket_info_t * RFM_get_tcp_socket_info(uint8_t socket_id)
+{
+  tcp_socket_info_t *tcp_socket_info_ptr = NULL;
+  uint8_t array_count;
+  
+  for(array_count = 0; array_count < TCP_SOCKET_MAX_NUM_CONNECTIONS; array_count++) {
+    if ((tcp_socket_array[array_count].used == 1) 
+         && (tcp_socket_array[array_count].socket_id == socket_id)) {
+      tcp_socket_info_ptr = &tcp_socket_array[array_count];
+      break;
+    }
+  }
+  return tcp_socket_info_ptr;
 }

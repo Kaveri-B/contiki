@@ -266,6 +266,9 @@ typedef unsigned long rtimer_clock_t;
 #define HTTP_CONF_MAX_SSL_CONTEXT       HTTP_CONF_MAX_HTTPS_SOCKETS
 #define HTTP_CONF_MAX_POST_DATA         (HTTP_CONF_MAX_HTTP_SOCKETS + HTTP_CONF_MAX_HTTPS_SOCKETS)
 
+/* TCP socket command related configurations.*/
+#define TCP_SOCKET_MAX_NUM_CONNECTIONS  1
+
 /* include the project config */
 /* PROJECT_CONF_H might be defined in the project Makefile */
 #ifdef PROJECT_CONF_H
