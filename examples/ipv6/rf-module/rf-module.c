@@ -61,7 +61,7 @@
 #define UDP_SERVER_PORT 5678
 #define UDP_EXAMPLE_ID  190
 #ifndef PERIOD
-#define PERIOD 60
+#define PERIOD 5
 #endif
 
 #define START_INTERVAL		(15 * CLOCK_SECOND)
@@ -294,11 +294,11 @@ static void set_prefix_64(uip_ipaddr_t *prefix_64)
   uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
   uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
   
-  dag = rpl_set_root(RPL_DEFAULT_INSTANCE, &ipaddr);
-  if(dag != NULL) {
-    rpl_set_prefix(dag, &prefix, 64);
-    PRINTF("created a new RPL dag\n");
-  }
+  //dag = rpl_set_root(RPL_DEFAULT_INSTANCE, &ipaddr);
+  //if(dag != NULL) {
+  //  rpl_set_prefix(dag, &prefix, 64);
+  //  PRINTF("created a new RPL dag\n");
+  //}
 }
 /*----------------------------------------------------------------------------*/
 
@@ -719,6 +719,7 @@ PROCESS_THREAD(udp_client_process_2, ev, data)
 PROCESS_THREAD(border_router_process, ev, data)
 {
   //static struct etimer et;
+  uip_ipaddr_t ipaddr;
   
   PROCESS_BEGIN();
   
@@ -761,25 +762,17 @@ PROCESS_THREAD(border_router_process, ev, data)
   print_local_addresses();
 #endif
   
+  /* Assign a unique local address (RFC4193,
+     http://tools.ietf.org/html/rfc4193). */
+  //memcpy(&ipaddr, &br_prefix, sizeof(br_prefix));  
+  //uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
+  //uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
+
+  rpl_dag_root_init_dag();
+
   while(1) {
-    PROCESS_YIELD();
-    if(ev == tcpip_event) {
-      tcpip_handler();
-    }
-    
-    //@kaveri
-    if (ev == serial_line_event_message ) {
-      PRINTF("Received serial data\n");
-      //rpl_repair_root(RPL_DEFAULT_INSTANCE);
-    }
-#if 0
-    if (ev == sensors_event && data == &button_sensor) {
-      PRINTF("Initiating global repair\n");
-      rpl_repair_root(RPL_DEFAULT_INSTANCE);
-    }
-#endif
+      PROCESS_WAIT_EVENT();
   }
-  
   PROCESS_END();
 }
 /*----------------------------------------------------------------------------*/
