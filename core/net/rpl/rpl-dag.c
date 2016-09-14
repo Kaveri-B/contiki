@@ -379,6 +379,9 @@ rpl_set_root(uint8_t instance_id, uip_ipaddr_t *dag_id)
         rpl_free_dag(dag);
       }
     }
+    /*Stop all the timers related with DAO transmission as we are becoming the root.*/
+    ctimer_stop(&instance->dao_timer);
+    ctimer_stop(&instance->dao_retransmit_timer);
   }
 
   dag = rpl_alloc_dag(instance_id, dag_id);
