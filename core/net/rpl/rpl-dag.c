@@ -217,13 +217,13 @@ rpl_parent_is_reachable(rpl_parent_t *p) {
   if(p == NULL || p->dag == NULL || p->dag->instance == NULL || p->dag->instance->of == NULL) {
     return 0;
   } else {
-#ifndef UIP_CONF_ND6_SEND_NA
+#if UIP_ND6_SEND_NS
     uip_ds6_nbr_t *nbr = rpl_get_nbr(p);
     /* Exclude links to a neighbor that is not reachable at a NUD level */
     if(nbr == NULL || nbr->state != NBR_REACHABLE) {
       return 0;
     }
-#endif /* UIP_CONF_ND6_SEND_NA */
+#endif /* UIP_ND6_SEND_NS */
     /* If we don't have fresh link information, assume the parent is reachable. */
     return !rpl_parent_is_fresh(p) || p->dag->instance->of->parent_has_usable_link(p);
   }
@@ -311,7 +311,7 @@ nullify_parents(rpl_dag_t *dag, rpl_rank_t minimum_rank)
 }
 /*---------------------------------------------------------------------------*/
 static int
-should_send_dao(rpl_instance_t *instance, rpl_dio_t *dio, rpl_parent_t *p)
+should_refresh_routes(rpl_instance_t *instance, rpl_dio_t *dio, rpl_parent_t *p)
 {
   /* if MOP is set to no downward routes no DAO should be sent */
   if(instance->mop == RPL_MOP_NO_DOWNWARD_ROUTES) {
@@ -558,13 +558,6 @@ rpl_set_default_route(rpl_instance_t *instance, uip_ipaddr_t *from)
         RPL_DEFAULT_ROUTE_INFINITE_LIFETIME ? 0 : RPL_LIFETIME(instance, instance->default_lifetime));
     if(instance->def_route == NULL) {
       return 0;
-    }
-  } else {
-    PRINTF("RPL: Removing default route\n");
-    if(instance->def_route != NULL) {
-      uip_ds6_defrt_rm(instance->def_route);
-    } else {
-      PRINTF("RPL: Not actually removing default route, since instance had no default route\n");
     }
   }
   return 1;
@@ -839,12 +832,16 @@ rpl_select_dag(rpl_instance_t *instance, rpl_parent_t *p)
     PRINTF("RPL: Changed preferred parent, rank changed from %u to %u\n",
   	(unsigned)old_rank, best_dag->rank);
     RPL_STAT(rpl_stats.parent_switch++);
-    if(RPL_IS_STORING(instance) && last_parent != NULL) {
-      /* Send a No-Path DAO to the removed preferred parent. */
-      dao_output(last_parent, RPL_ZERO_LIFETIME);
+    if(RPL_IS_STORING(instance)) {
+      if(last_parent != NULL) {
+        /* Send a No-Path DAO to the removed preferred parent. */
+        dao_output(last_parent, RPL_ZERO_LIFETIME);
+      }
+      /* Trigger DAO transmission from immediate children.
+       * Only for storing mode, see RFC6550 section 9.6. */
+      RPL_LOLLIPOP_INCREMENT(instance->dtsn_out);
     }
     /* The DAO parent set changed - schedule a DAO transmission. */
-    RPL_LOLLIPOP_INCREMENT(instance->dtsn_out);
     rpl_schedule_dao(instance);
     rpl_reset_dio_timer(instance);
 #if DEBUG
@@ -873,7 +870,10 @@ best_parent(rpl_dag_t *dag, int fresh_only)
   for(p = nbr_table_head(rpl_parents); p != NULL; p = nbr_table_next(rpl_parents, p)) {
 
     /* Exclude parents from other DAGs or announcing an infinite rank */
-    if(p->dag != dag || p->rank == INFINITE_RANK) {
+    if(p->dag != dag || p->rank == INFINITE_RANK || p->rank < ROOT_RANK(dag->instance)) {
+      if(p->rank < ROOT_RANK(dag->instance)) {
+        PRINTF("RPL: Parent has invalid rank\n");
+      }
       continue;
     }
 
@@ -882,7 +882,7 @@ best_parent(rpl_dag_t *dag, int fresh_only)
       continue;
     }
 
-#ifndef UIP_CONF_ND6_SEND_NA
+#if UIP_ND6_SEND_NS
     {
     uip_ds6_nbr_t *nbr = rpl_get_nbr(p);
     /* Exclude links to a neighbor that is not reachable at a NUD level */
@@ -890,7 +890,7 @@ best_parent(rpl_dag_t *dag, int fresh_only)
       continue;
     }
     }
-#endif /* UIP_CONF_ND6_SEND_NA */
+#endif /* UIP_ND6_SEND_NS */
 
     /* Now we have an acceptable parent, check if it is the new best */
     best = of->best_parent(best, p);
@@ -922,11 +922,11 @@ rpl_select_parent(rpl_dag_t *dag)
       /* Probe the best parent shortly in order to get a fresh estimate */
       dag->instance->urgent_probing_target = best;
       rpl_schedule_probing(dag->instance);
-#else /* RPL_WITH_PROBING */
-      rpl_set_preferred_parent(dag, best);
-      dag->rank = rpl_rank_via_parent(dag->preferred_parent);
-#endif /* RPL_WITH_PROBING */
     }
+#else /* RPL_WITH_PROBING */
+    rpl_set_preferred_parent(dag, best);
+    dag->rank = rpl_rank_via_parent(dag->preferred_parent);
+#endif /* RPL_WITH_PROBING */
   } else {
     rpl_set_preferred_parent(dag, NULL);
   }
@@ -1328,8 +1328,12 @@ rpl_local_repair(rpl_instance_t *instance)
   instance->has_downward_route = 0;
 
   rpl_reset_dio_timer(instance);
-  /* Request refresh of DAO registrations next DIO */
-  RPL_LOLLIPOP_INCREMENT(instance->dtsn_out);
+  if(RPL_IS_STORING(instance)) {
+    /* Request refresh of DAO registrations next DIO. Only for storing mode. In
+     * non-storing mode, non-root nodes increment DTSN only on when their parent do,
+     * or on global repair (see RFC6550 section 9.6.) */
+    RPL_LOLLIPOP_INCREMENT(instance->dtsn_out);
+  }
 
   RPL_STAT(rpl_stats.local_repairs++);
 }
@@ -1544,7 +1548,7 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
   }
 
   /* The DIO comes from a valid DAG, we can refresh its lifetime */
-  dag->lifetime = (1UL << (instance->dio_intmin + instance->dio_intdoubl)) / 1000;
+  dag->lifetime = (1UL << (instance->dio_intmin + instance->dio_intdoubl)) * RPL_DAG_LIFETIME / 1000;
   PRINTF("Set dag ");
   PRINT6ADDR(&dag->dag_id);
   PRINTF(" lifetime to %ld\n", dag->lifetime);
@@ -1614,7 +1618,9 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
 
   /* We don't use route control, so we can have only one official parent. */
   if(dag->joined && p == dag->preferred_parent) {
-    if(should_send_dao(instance, dio, p)) {
+    if(should_refresh_routes(instance, dio, p)) {
+      /* Our parent is requesting a new DAO. Increment DTSN in turn,
+       * in both storing and non-storing mode (see RFC6550 section 9.6.) */
       RPL_LOLLIPOP_INCREMENT(instance->dtsn_out);
       rpl_schedule_dao(instance);
     }
