@@ -295,26 +295,27 @@ dis_output(uip_ipaddr_t *addr)
   PRINT6ADDR(addr);
   PRINTF("\n");
 
-  if(g_FAN_compliant == 1){
-    /* Insert Solicited Information option */
-    rpl_dag_t* currentDag;
-    
-    buffer[2] = RPL_OPTION_SOLICITED_INFO;
-    buffer[3] = 19; //Option length as per RFC6550
-    currentDag = rpl_get_any_dag();
-    if(currentDag != NULL){
-      /* Node previously joined to a network. Hence fill that information.*/
-      buffer[4] = currentDag->instance->instance_id; //RPLInstanceID
-      buffer[5] = 0xE0; // V, I, D are set to 1
-      memcpy(buffer + 6, &currentDag->dag_id.u8[0], 16);
-      buffer[22] = currentDag->version;
-    }
-    else {
-      memset(buffer + 4, 0, buffer[3]);
-    }
-    uip_icmp6_send(addr, ICMP6_RPL, RPL_CODE_DIS, 2 + buffer[3] + 2);
-  }
-  else {
+//  if(g_FAN_compliant == 1){
+//    /* Insert Solicited Information option */
+//    rpl_dag_t* currentDag;
+//    
+//    buffer[2] = RPL_OPTION_SOLICITED_INFO;
+//    buffer[3] = 19; //Option length as per RFC6550
+//    currentDag = rpl_get_any_dag();
+//    if(currentDag != NULL){
+//      /* Node previously joined to a network. Hence fill that information.*/
+//      buffer[4] = currentDag->instance->instance_id; //RPLInstanceID
+//      buffer[5] = 0xE0; // V, I, D are set to 1
+//      memcpy(buffer + 6, &currentDag->dag_id.u8[0], 16);
+//      buffer[22] = currentDag->version;
+//    }
+//    else {
+//      memset(buffer + 4, 0, buffer[3]);
+//    }
+//    uip_icmp6_send(addr, ICMP6_RPL, RPL_CODE_DIS, 2 + buffer[3] + 2);
+//  }
+//  else 
+  {
   uip_icmp6_send(addr, ICMP6_RPL, RPL_CODE_DIS, 2);
   }
 
@@ -1379,7 +1380,7 @@ dao_ack_input(void)
   }
 #endif /* RPL_WITH_DAO_ACK */
   uip_clear_buf();
-  rpl_join_indication(1);
+  //rpl_join_indication(1);
 }
 /*---------------------------------------------------------------------------*/
 void

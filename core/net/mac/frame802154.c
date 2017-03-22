@@ -73,7 +73,7 @@
  *   operating.  If this value is 0xffff, the device is not
  *   associated.
  */
-static uint16_t mac_pan_id = IEEE802154_PANID;
+uint16_t mac_pan_id = IEEE802154_PANID;
 
 /**
  *  \brief Structure that contains the lengths of the various addressing and security fields

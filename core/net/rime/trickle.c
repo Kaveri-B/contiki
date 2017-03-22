@@ -58,7 +58,7 @@
 
 static const struct packetbuf_attrlist attributes[] =
   {
-    TRICKLE_ATTRIBUTES PACKETBUF_ATTR_LAST
+    TRICKLE_ATTRIBUTES PACKETBUF_ATTR_LAST 
   };
 
 
