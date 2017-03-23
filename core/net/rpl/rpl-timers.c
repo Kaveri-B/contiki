@@ -211,9 +211,8 @@ handle_dio_timer(void *ptr)
 void
 rpl_reset_periodic_timer(void)
 {
-  next_dis = RPL_DIS_INTERVAL / 2 +
-    ((uint32_t)RPL_DIS_INTERVAL * (uint32_t)random_rand()) / RANDOM_RAND_MAX -
-    RPL_DIS_START_DELAY;
+  next_dis = (RPL_DIS_INTERVAL - RPL_DIS_START_DELAY) +
+    ((uint32_t)(RPL_DIS_START_DELAY + 1) * (uint32_t)random_rand()) / RANDOM_RAND_MAX;
   ctimer_set(&periodic_timer, CLOCK_SECOND, handle_periodic_timer, NULL);
 }
 /*---------------------------------------------------------------------------*/

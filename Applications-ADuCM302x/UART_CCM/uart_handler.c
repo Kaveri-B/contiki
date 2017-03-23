@@ -48,6 +48,7 @@ extern uint8_t sensor_end_node;
 extern uip_lladdr_t pck_originator_lladdr;
 extern uint16_t accept_dio_rank;
 extern uint16_t mac_dst_pan_id;
+extern uint16_t mac_src_pan_id;
 extern uint16_t mac_pan_id;
 
 UART_CONFIG_PARAMETERS *uart_app_info = (UART_CONFIG_PARAMETERS*)&mConfigFlashMemory[0];
@@ -448,7 +449,8 @@ void config_init(bool readConfigFlash )
      // FlashWrite(MEM_LOC_AD6L_RUNPARAMS,sizeof(uart_app_info),(long*)&uart_app_info);
       FlashWrite(MEM_LOC_CONFIG_PARAMS_IN_FLASH,SIZE_OF_CONFIG_PARAMES,(long*)mConfigFlashMemory);
     }
-    //memcpy(&mac_dst_pan_id, &mConfigParams->PANID, sizeof(mac_dst_pan_id));
+    memcpy(&mac_src_pan_id, &mConfigParams->PANID, sizeof(mac_src_pan_id));
+    memcpy(&mac_dst_pan_id, &mConfigParams->PANID, sizeof(mac_dst_pan_id));
     memcpy(&mac_pan_id, &mConfigParams->PANID , sizeof(mac_pan_id));
 //    memset(mIotConfigParams,'\0',sizeof(mIotConfigParams));
 //    mIotConfigParams->IPType = 0x01; // DHCP Enabled

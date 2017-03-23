@@ -72,13 +72,13 @@ static uint8_t mac_dsn;
  *   sending to.  If this value is 0xffff, the device is not
  *   associated.
  */
-static uint16_t mac_dst_pan_id = IEEE802154_PANID;
+uint16_t mac_dst_pan_id = IEEE802154_PANID;
 
 /**  \brief The 16-bit identifier of the PAN on which the device is
  *   operating.  If this value is 0xffff, the device is not
  *   associated.
  */
-static uint16_t mac_src_pan_id = IEEE802154_PANID;
+uint16_t mac_src_pan_id = IEEE802154_PANID;
 
 /*---------------------------------------------------------------------------*/
 static int
@@ -225,6 +225,8 @@ input_packet(void)
   } else {
     PRINTF("6MAC: failed to parse hdr\n");
   }
+  packetbuf_clear();
+  NETSTACK_RADIO.on();
 }
 /*---------------------------------------------------------------------------*/
 static int

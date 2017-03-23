@@ -144,8 +144,11 @@ extern ANODECONFIGSTATE *mConfigParams;
 extern uint8_t mConfigFlashMemory[];
 extern uint8_t g_rcvd_cmd_frame_interface_type;
 extern uint16_t mac_pan_id;
+extern uint16_t mac_dst_pan_id;
+extern uint16_t mac_src_pan_id;
 extern uip_802154_longaddr ieee_802154_extended_addr;
 extern uint16_t pan_id_configured;
+extern RPL_MOP_Type_t g_RPL_MOP_type;
 
 /******************************************************************************/
 static uint8_t send_confirmation = 0;
@@ -291,6 +294,8 @@ void RF_Module_API_Handler(uint8_t *rx_buff)
         rx_buff_pos += 3;
         payload_len = payload_len - 2 - 1;
         memcpy(&mac_pan_id, &mConfigParams->PANID , sizeof(mac_pan_id));
+        memcpy(&mac_src_pan_id, &mConfigParams->PANID , sizeof(mac_src_pan_id));
+        memcpy(&mac_dst_pan_id, &mConfigParams->PANID , sizeof(mac_dst_pan_id));
         memcpy(&pan_id_configured, &mConfigParams->PANID, sizeof(pan_id_configured));
         phy_set_panId(((mConfigParams->PANID[1] << 8) | mConfigParams->PANID[0]));
         break;
@@ -566,6 +571,19 @@ static int8_t ValidateJoinNetworkReqCmd(uint8_t *rx_buff)
     return -1;
   }
 
+    /* Validate RPL mode */
+  if(command_len >= 5) { 
+    if(rx_buff[RFMODULE_FRAME_CMD_POS + 4] > RPL_MOP_TYPE_STORING_MULTICAST) {
+      TxBuffer[RFMODULE_FRAME_CMD_POS] = RFMODULE_JOIN_NETWORK_CONF;
+      TxBuffer[RFMODULE_FRAME_CMD_POS + 1] = RFMODULE_INVALID_DATA;
+      RF_Module_FrameTx(2);
+      return -1;
+    }
+    else {
+      g_RPL_MOP_type = (RPL_MOP_Type_t)rx_buff[RFMODULE_FRAME_CMD_POS + 4];
+    }
+  }
+  
   return RFMODULE_SUCCESS;
 }
 /*----------------------------------------------------------------------------*/

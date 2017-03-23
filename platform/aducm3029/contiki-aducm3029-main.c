@@ -94,7 +94,7 @@ NodeType_t g_node_type = NODE_6LN;
 NodeType_t g_node_type = NODE_6LBR;
 #endif
 
-RPL_MOP_Type_t g_RPL_MOP_type = RPL_MOP_TYPE_NON_STORING;
+RPL_MOP_Type_t g_RPL_MOP_type = RPL_MOP_TYPE_STORING_NO_MULTICAST;
 /* Host application interface structure. */
 extern hif_t hif;
 
