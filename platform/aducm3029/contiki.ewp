@@ -2245,7 +2245,7 @@
     </group>
   </group>
   <group>
-    <name>REModule</name>
+    <name>RFModule</name>
     <file>
       <name>$PROJ_DIR$\..\..\Applications-ADuCM302x\Border_Router\border-router.c</name>
     </file>
