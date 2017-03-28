@@ -52,7 +52,9 @@
 #define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
+#ifdef RF_MODULE_ENABLED
 #include "RF_Module_API_Handler.h"
+#endif
 
 /* A configurable function called after update of the RPL DIO interval */
 #ifdef RPL_CALLBACK_NEW_DIO_INTERVAL
@@ -68,7 +70,9 @@ clock_time_t RPL_PROBING_DELAY_FUNC(rpl_dag_t *dag);
 #endif /* RPL_PROBING_DELAY_FUNC */
 /*---------------------------------------------------------------------------*/
 
+#ifdef RF_MODULE_ENABLED
 extern NodeType_t g_node_type;
+#endif
 
 /*---------------------------------------------------------------------------*/
 static struct ctimer periodic_timer;
@@ -103,7 +107,11 @@ handle_periodic_timer(void *ptr)
 #if RPL_DIS_SEND
   next_dis++;
   if(((dag == NULL)
-      ||((g_node_type == NODE_6LN) && (dag->preferred_parent == NULL)))   
+#ifdef RF_MODULE_ENABLED
+      ||((g_node_type == NODE_6LN) && (dag->preferred_parent == NULL)))
+#else
+      )   
+#endif
       && next_dis >= RPL_DIS_INTERVAL) {
     next_dis = 0;
     dis_output(NULL);
@@ -221,7 +229,9 @@ void
 rpl_reset_dio_timer(rpl_instance_t *instance)
 {
 #if !RPL_LEAF_ONLY
+#ifdef RF_MODULE_ENABLED
   if(g_node_type != NODE_6LN){
+#endif
     /* Do not reset if we are already on the minimum interval,
        unless forced to do so. */
     if(instance->dio_intcurrent > instance->dio_intmin) {
@@ -232,8 +242,11 @@ rpl_reset_dio_timer(rpl_instance_t *instance)
 #if RPL_CONF_STATS
     rpl_stats.resets++;
 #endif /* RPL_CONF_STATS */
+#ifdef RF_MODULE_ENABLED
   }
+#endif /* RF_MODULE_ENABLED */
 #endif /* RPL_LEAF_ONLY */
+
 }
 /*---------------------------------------------------------------------------*/
 static void handle_dao_timer(void *ptr);

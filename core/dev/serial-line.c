@@ -34,8 +34,10 @@
 
 #include "lib/ringbuf.h"
 
+#ifdef RF_MODULE_ENABLED
 #define DEBUG	DEBUG_FULL
 #include "net/ip/uip-debug.h"
+#endif
 
 #ifdef SERIAL_LINE_CONF_BUFSIZE
 #define BUFSIZE SERIAL_LINE_CONF_BUFSIZE

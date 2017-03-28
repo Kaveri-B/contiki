@@ -55,14 +55,18 @@
 
 #include <limits.h>
 #include <string.h>
+#ifdef RF_MODULE_ENABLED
 #include "RF_Module_API_Handler.h"
+#endif
 
 #if RPL_CONF_STATS
 rpl_stats_t rpl_stats;
 #endif
 
 /*---------------------------------------------------------------------------*/
+#ifdef RF_MODULE_ENABLED
 extern RPL_MOP_Type_t g_RPL_MOP_type;
+#endif
 /*---------------------------------------------------------------------------*/
 
 static enum rpl_mode mode = RPL_MODE_MESH;
@@ -352,9 +356,13 @@ rpl_init(void)
 #endif
 
 #if RPL_WITH_NON_STORING
+#ifdef RF_MODULE_ENABLED
   if(g_RPL_MOP_type == RPL_MOP_TYPE_NON_STORING) {
+#endif
     rpl_ns_init();
+#ifdef RF_MODULE_ENABLED
   }
+#endif
 #endif /* RPL_WITH_NON_STORING */
 }
 /*---------------------------------------------------------------------------*/

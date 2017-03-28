@@ -111,6 +111,7 @@ enum {
   TCP_SOCKET_FLAGS_CLOSING   = 0x02,
 };
 
+#ifdef RF_MODULE_ENABLED
 typedef struct tcp_socket_info_tag {
   uint8_t used;
   uint8_t socket_id;
@@ -121,6 +122,7 @@ typedef struct tcp_socket_info_tag {
   uint8_t outputbuf[UIP_TCP_MSS];
   struct tcp_socket tcp_socket;
 }tcp_socket_info_t;
+#endif
 
 /**
  * \brief      Register a TCP socket

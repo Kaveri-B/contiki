@@ -204,7 +204,6 @@ PROCESS_THREAD(udp_client_process, ev, data)
 
   /* initialize serial line */
   //uart1_set_input(serial_line_input_byte);
-  serial_line_init();
 
 
 #if WITH_COMPOWER

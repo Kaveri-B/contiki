@@ -38,6 +38,12 @@
  */
 
 #include "net/netstack.h"
+#ifdef RF_MODULE_ENABLED
+#include "RF_Module_API_Handler.h"
+NodeType_t g_node_type = NODE_6LBR;
+RPL_MOP_Type_t g_RPL_MOP_type = RPL_MOP_TYPE_NON_STORING;
+unsigned char g_FAN_compliant = 0;
+#endif
 /*---------------------------------------------------------------------------*/
 void
 netstack_init(void)

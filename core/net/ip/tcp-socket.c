@@ -41,8 +41,10 @@
 #include "tcp-socket.h"
 
 #include <string.h>
+#ifdef RF_MODULE_ENABLED
 #define DEBUG DEBUG_FULL
 #include "net/ip/uip-debug.h"
+#endif
 
 static void relisten(struct tcp_socket *s);
 

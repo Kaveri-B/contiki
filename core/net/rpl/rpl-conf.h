@@ -243,7 +243,11 @@
 #ifdef RPL_CONF_WITH_DAO_ACK
 #define RPL_WITH_DAO_ACK RPL_CONF_WITH_DAO_ACK
 #else
+#ifdef RF_MODULE_ENABLED
 #define RPL_WITH_DAO_ACK 1
+#else
+#define RPL_WITH_DAO_ACK 0
+#endif
 #endif /* RPL_CONF_WITH_DAO_ACK */
 
 /*

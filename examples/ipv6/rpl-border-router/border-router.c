@@ -56,7 +56,9 @@
 
 #define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
+#ifdef RF_MODULE_ENABLED
 #include "sys/node-id.h"
+#endif
 
 static uip_ipaddr_t prefix;
 static uint8_t prefix_set;
@@ -401,9 +403,10 @@ set_prefix_64(uip_ipaddr_t *prefix_64)
 PROCESS_THREAD(border_router_process, ev, data)
 {
   static struct etimer et;
+#ifdef RF_MODULE_ENABLED
   uint8_t addr[sizeof(uip_lladdr.addr)];
   int i;
-
+#endif
   PROCESS_BEGIN();
 
 /* While waiting for the prefix to be sent through the SLIP connection, the future
@@ -427,6 +430,7 @@ PROCESS_THREAD(border_router_process, ev, data)
   NETSTACK_MAC.off(1);
 #endif
 
+#ifdef RF_MODULE_ENABLED
     //@debug
     for(i = 0; i < sizeof(uip_lladdr.addr); i += 2) {
       addr[i + 1] = node_id & 0xff;
@@ -449,6 +453,7 @@ PROCESS_THREAD(border_router_process, ev, data)
       printf("%02x%02x\n", lladdr->ipaddr.u8[14],
              lladdr->ipaddr.u8[15]);
     }
+#endif /* RF_MODULE_ENABLED */
 
   /* Request prefix until it has been received */
   while(!prefix_set) {
@@ -478,7 +483,9 @@ PROCESS_THREAD(border_router_process, ev, data)
 }
 /*---------------------------------------------------------------------------*/
 
+#ifdef RF_MODULE_ENABLED
 void rpl_join_indication(unsigned int joined)
 {
 
 }
+#endif

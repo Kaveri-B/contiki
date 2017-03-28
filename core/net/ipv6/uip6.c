@@ -90,7 +90,9 @@
 #endif /* UIP_ND6_SEND_NS */
 
 #include <string.h>
+#ifdef RF_MODULE_ENABLED
 #include "RF_Module_API_Handler.h"
+#endif
 
 /*---------------------------------------------------------------------------*/
 /* For Debug, logging, statistics                                            */
@@ -111,9 +113,9 @@ void uip_log(char *msg);
 struct uip_stats uip_stat;
 #endif /* UIP_STATISTICS == 1 */
 /*---------------------------------------------------------------------------*/
-
+#ifdef RF_MODULE_ENABLED
 extern RPL_MOP_Type_t g_RPL_MOP_type;
-
+#endif
 /*---------------------------------------------------------------------------*/
 /**
  * \name Layer 2 variables
@@ -1377,11 +1379,15 @@ uip_process(uint8_t flag)
           PRINTF("Processing Routing header\n");
           if(UIP_ROUTING_BUF->seg_left > 0) {
 #if UIP_CONF_IPV6_RPL && RPL_WITH_NON_STORING
-	    if(g_RPL_MOP_type == RPL_MOP_TYPE_NON_STORING){
+#ifdef RF_MODULE_ENABLED
+   if(g_RPL_MOP_type == RPL_MOP_TYPE_NON_STORING){
+#endif
               if(rpl_process_srh_header()) {
                 goto send; /* Proceed to forwarding */
               }
+#ifdef RF_MODULE_ENABLED
             }
+#endif
 #endif /* UIP_CONF_IPV6_RPL && RPL_WITH_NON_STORING */
             uip_icmp6_error_output(ICMP6_PARAM_PROB, ICMP6_PARAMPROB_HEADER, UIP_IPH_LEN + uip_ext_len + 2);
             UIP_STAT(++uip_stat.ip.drop);

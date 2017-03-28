@@ -225,8 +225,10 @@ input_packet(void)
   } else {
     PRINTF("6MAC: failed to parse hdr\n");
   }
+ifdef RF_MODULE_ENABLED
   packetbuf_clear();
   NETSTACK_RADIO.on();
+#endif
 }
 /*---------------------------------------------------------------------------*/
 static int

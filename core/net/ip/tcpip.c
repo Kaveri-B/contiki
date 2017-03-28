@@ -53,7 +53,9 @@
 #endif
 
 #include <string.h>
+#ifdef RF_MODULE_ENABLED
 #include "RF_Module_API_Handler.h"
+#endif
 
 #define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
@@ -113,7 +115,9 @@ enum {
 };
 
 /*---------------------------------------------------------------------------*/
+#ifdef RF_MODULE_ENABLED
 extern RPL_MOP_Type_t g_RPL_MOP_type;
+#endif
 /*---------------------------------------------------------------------------*/
 
 /* Called on IP packet output. */
@@ -566,14 +570,19 @@ tcpip_ipv6_output(void)
     /* Next hop determination */
 
 #if UIP_CONF_IPV6_RPL && RPL_WITH_NON_STORING
+#ifdef RF_MODULE_ENABLED
     if(g_RPL_MOP_type == RPL_MOP_TYPE_NON_STORING){
+#endif
       uip_ipaddr_t ipaddr;
       /* Look for a RPL Source Route */
       if(rpl_srh_get_next_hop(&ipaddr)) {
         nexthop = &ipaddr;
       }
+#ifdef RF_MODULE_ENABLED
     }
+#endif
 #endif /* UIP_CONF_IPV6_RPL && RPL_WITH_NON_STORING */
+
 
     nbr = NULL;
 
@@ -656,9 +665,13 @@ tcpip_ipv6_output(void)
         static uint8_t annotate_has_last = 0;
 
         if(annotate_has_last) {
-//          printf("#L %u 0; red\n", annotate_last);
+#ifndef RF_MODULE_ENABLED
+          printf("#L %u 0; red\n", annotate_last);
+#endif
         }
-//        printf("#L %u 1; red\n", nexthop->u8[sizeof(uip_ipaddr_t) - 1]);
+#ifdef RF_MODULE_ENABLED
+        printf("#L %u 1; red\n", nexthop->u8[sizeof(uip_ipaddr_t) - 1]);
+#endif
         annotate_last = nexthop->u8[sizeof(uip_ipaddr_t) - 1];
         annotate_has_last = 1;
       }

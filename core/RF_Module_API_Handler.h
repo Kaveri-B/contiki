@@ -2,7 +2,7 @@
 #ifndef __RF_MODULE_API_HANDLER_H__
 #define __RF_MODULE_API_HANDLER_H__
 
-
+#ifdef RF_MODULE_ENABLED
 #define RFMODULE_FRAME_SYNC_WORD_LENGTH           2
 #define RFMODULE_FRAME_LENGTH_FEILD_LENGTH        2
 #define RFMODULE_FRAME_HEADER_LENGTH              (RFMODULE_FRAME_SYNC_WORD_LENGTH + RFMODULE_FRAME_LENGTH_FEILD_LENGTH)
@@ -25,4 +25,5 @@ typedef enum RPL_MOP_Type_tag {
 }RPL_MOP_Type_t;
 
 extern unsigned char g_FAN_compliant;
+#endif /* RF_MODULE_ENABLED */
 #endif //__RF_MODULE_API_HANDLER_H__
