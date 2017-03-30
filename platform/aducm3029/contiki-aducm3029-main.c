@@ -78,23 +78,6 @@ uint16_t accept_dio_rank = 0;
 uint8_t sensor_end_node = 0;
 uip_802154_longaddr ieee_802154_extended_addr = {0x00, 0x05, 0xf7, 0xfe, 0xff,0x00,0x00,01};
 
-#ifdef  LALG_LAYER_ON
-#include "LALG_layer.h"
- 
- 
-#endif
-/* Enum variable to hold the device type. */
-#if (DEV_TYPE == DEV_TYPE_EDGE_ROUTER)
-NodeType_t g_node_type = NODE_6LBR;
-#elif (DEV_TYPE == DEV_TYPE_ROUTER)
-NodeType_t g_node_type = NODE_6LR;
-#elif (DEV_TYPE == DEV_TYPE_HOST)
-NodeType_t g_node_type = NODE_6LN;
-#else
-NodeType_t g_node_type = NODE_6LBR;
-#endif
-
-RPL_MOP_Type_t g_RPL_MOP_type = RPL_MOP_TYPE_STORING_NO_MULTICAST;
 /* Host application interface structure. */
 extern hif_t hif;
 
@@ -284,18 +267,6 @@ void InitUART()
   adi_uart_SubmitRxBuffer(hUartDevice,RxBuffer,1);
 }
 
-#if  ((DEV_TYPE != DEV_TYPE_HOST) && (DEV_TYPE != DEV_TYPE_EDGE_ROUTER) && (DEV_TYPE != DEV_TYPE_ROUTER))
-void Init_RFM_SPI(void){
-  //ConfigureSlaveSPI(ADI_SPI_DEVID_0,ADI_SPI_CS0);
-  RFM_cmd_tx_struct_init();
-//  hif.uart_frame_type = FRAME_TYPE_RF_MODULE;
-//  hif.rx_state = READING_PLD;
-//  SpiSlaveRxSubmitBuffer(RxBuffer, 1);
-  hif.rx_state = RX_INIT;
-  //SpiSlaveRxSubmitBuffer(RxBuffer,1);
-}
-#endif
-
 void
 init_hw(void)
 {
@@ -328,10 +299,6 @@ init_hw(void)
   
   InitUART();
 
-#if ((DEV_TYPE != DEV_TYPE_HOST) && (DEV_TYPE != DEV_TYPE_EDGE_ROUTER) && (DEV_TYPE != DEV_TYPE_ROUTER))
-  Init_RFM_SPI();
-#endif
-
 #ifndef LLSEC_DISABLE
   crypto_init();
 #endif  
@@ -358,9 +325,8 @@ contiki_os_net_init(void)
   NVIC_SetPriority(XINT_EVT2_IRQn, (NVIC_GetPriority(XINT_EVT0_IRQn)));
   NVIC_SetPriority(XINT_EVT3_IRQn, (NVIC_GetPriority(XINT_EVT0_IRQn)));
   NVIC_SetPriority(RTC1_EVT_IRQn, 1);
-#ifndef UL_NODE
+
   memcpy(&uip_lladdr.addr, &ieee_802154_extended_addr, sizeof (uip_lladdr));
-#endif
   linkaddr_set_node_addr((linkaddr_t *)&ieee_802154_extended_addr);
   
   /* Clock */
@@ -394,28 +360,6 @@ contiki_os_net_init(void)
   /* Start Network */
   netstack_init();
 #endif
-
-#if ((DEV_TYPE == DEV_TYPE_HOST) || (DEV_TYPE == DEV_TYPE_EDGE_ROUTER) || (DEV_TYPE == DEV_TYPE_ROUTER))
-  update_phy_params();
-
-#ifndef UL_NODE
-  /* Start tcpip process */
-  process_start(&tcpip_process, NULL);
-
-  #if (defined(ETHERNET_6LBR) && (DEV_TYPE == DEV_TYPE_EDGE_ROUTER))
-  ip64_init();
-  #endif
-#endif
-#endif
-
-  #ifndef UL_NODE
-
-      #ifndef WIRESHARK_FEEDER
-        #if ((DEV_TYPE == DEV_TYPE_HOST) || (DEV_TYPE == DEV_TYPE_EDGE_ROUTER))
-        autostart_start(autostart_processes);
-        #endif
-      #endif
-  #endif
 }
 
 
@@ -427,13 +371,6 @@ PROCESS_NAME(border_router_process);
 PROCESS_NAME(uart_handler_process);
 PROCESS_NAME(LWM2M_packet_process);
 
-#ifdef LALG_LAYER_ON
-PROCESS_NAME(lalg_packet_process);
-#endif
-#if(RESTCOAP)
-PROCESS_NAME(rest_engine_process);
-
-#endif
 extern ADI_SPI_HANDLE hSpiSlaveDev;
 
 static struct timer wdt_reset_timer;
@@ -444,32 +381,9 @@ main(void)
 
   config_init(true);
 
-#ifdef ENABLE_LOW_POWER_MODE
-  if(Node_IsSleepy())
-      Low_Power_Mode_Init();
-#endif /* ENABLE_LOW_POWER_MODE */
-
   contiki_os_net_init();
   utu_initialise();
 
-#if(RESTCOAP)
-  process_start(&rest_engine_process, NULL);
-
-#elif(SLIPRADIO)
-  process_start(&adapter_init, NULL);
-  process_start(&slip_process, NULL);
-#else
-#if (DEV_TYPE == DEV_TYPE_EDGE_ROUTER)
-  process_start (&border_router_process, NULL);
-#endif
-#endif
-#if (LALG_LAYER_ON)
-process_start (&lalg_packet_process, NULL);
-
-#endif
-#if(UL_NODE)
-  process_start (&LWM2M_packet_process, NULL);
-#endif
   process_start(&uart_handler_process, NULL);
 
 

@@ -442,6 +442,10 @@ uint8_t RF_Module_FrameTx(uint16_t DataLen)
   return 0;
 }
 
+void rpl_join_indication(uint8_t status)
+{
+}
+
 /********************* Static functions definitions ***************************/
 
 /*!

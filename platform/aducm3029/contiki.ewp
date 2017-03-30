@@ -192,6 +192,7 @@
           <state>ADI_IAR</state>
           <state>ADCM3029_EZKIT_USED</state>
           <state>xRFMODULE_7242</state>
+          <state>RF_MODULE_ENABLED</state>
         </option>
         <option>
           <name>CCPreprocFile</name>
