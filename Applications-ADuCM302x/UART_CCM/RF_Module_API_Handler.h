@@ -14,6 +14,7 @@ typedef enum NodeType_tag {
   NODE_6LBR,
   NODE_6LR,
   NODE_6LN,
+  NODE_6AP,
 }NodeType_t;
 
 /* DAG Mode of Operation */

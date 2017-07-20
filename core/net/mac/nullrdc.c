@@ -51,7 +51,9 @@
 #include "sys/cooja_mt.h"
 #endif /* CONTIKI_TARGET_COOJA || CONTIKI_TARGET_COOJA_IP64 */
 
-#define DEBUG 0
+#define DEBUG DEBUG_NONE
+#include "net/ip/uip-debug.h"
+
 #if DEBUG
 #include <stdio.h>
 #define PRINTF(...) printf(__VA_ARGS__)
@@ -110,15 +112,26 @@
 #define ACK_LEN 3
 
 /*---------------------------------------------------------------------------*/
+#ifdef RF_MODULE_ENABLED
+#include "RF_Module_API_Handler.h"
+extern uint8_t g_mac_ack;
+#endif
+
+/*---------------------------------------------------------------------------*/
 static int
 send_one_packet(mac_callback_t sent, void *ptr)
 {
   int ret;
   int last_sent_ok = 0;
 
+  PRINTF("nullrdc: send_one_packet\n");
   packetbuf_set_addr(PACKETBUF_ADDR_SENDER, &linkaddr_node_addr);
 #if NULLRDC_802154_AUTOACK || NULLRDC_802154_AUTOACK_HW
+#ifdef RF_MODULE_ENABLED
+  packetbuf_set_attr(PACKETBUF_ATTR_MAC_ACK, g_mac_ack);
+#else
   packetbuf_set_attr(PACKETBUF_ATTR_MAC_ACK, 1);
+#endif
 #endif /* NULLRDC_802154_AUTOACK || NULLRDC_802154_AUTOACK_HW */
 
   if(NETSTACK_FRAMER.create() < 0) {
@@ -149,7 +162,11 @@ send_one_packet(mac_callback_t sent, void *ptr)
 
       switch(NETSTACK_RADIO.transmit(packetbuf_totlen())) {
       case RADIO_TX_OK:
-        if(is_broadcast) {
+        if((is_broadcast)
+#ifdef RF_MODULE_ENABLED
+           ||(g_mac_ack == 0)
+#endif
+          ) {
           ret = MAC_TX_OK;
         } else {
           rtimer_clock_t wt;

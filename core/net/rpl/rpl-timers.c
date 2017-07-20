@@ -114,6 +114,7 @@ handle_periodic_timer(void *ptr)
 #endif
       && next_dis >= RPL_DIS_INTERVAL) {
     next_dis = 0;
+    PRINTF("Send DIS\n");
     dis_output(NULL);
   }
 #endif
@@ -208,7 +209,7 @@ handle_dio_timer(void *ptr)
       instance->dio_intcurrent++;
       PRINTF("RPL: DIO Timer interval doubled %d\n", instance->dio_intcurrent);
     }
-    new_dio_interval(instance);
+    //new_dio_interval(instance); //@ESL
   }
 
 #if DEBUG
@@ -219,8 +220,15 @@ handle_dio_timer(void *ptr)
 void
 rpl_reset_periodic_timer(void)
 {
-  next_dis = (RPL_DIS_INTERVAL - RPL_DIS_START_DELAY) +
-    ((uint32_t)(RPL_DIS_START_DELAY + 1) * (uint32_t)random_rand()) / RANDOM_RAND_MAX;
+  if(g_node_type == NODE_6LN) {
+    next_dis =  
+      ((uint32_t)(RPL_DIS_START_DELAY + 1) * (uint32_t)random_rand()) / RANDOM_RAND_MAX;
+  }
+  else {
+    next_dis = (RPL_DIS_INTERVAL - RPL_DIS_START_DELAY) +
+      ((uint32_t)(RPL_DIS_START_DELAY + 1) * (uint32_t)random_rand()) / RANDOM_RAND_MAX;
+  }
+  
   ctimer_set(&periodic_timer, CLOCK_SECOND, handle_periodic_timer, NULL);
 }
 /*---------------------------------------------------------------------------*/

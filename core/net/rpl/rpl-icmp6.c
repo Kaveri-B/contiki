@@ -234,6 +234,7 @@ dis_input(void)
       if(g_node_type == NODE_6LN) {
         if(!uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
 	  PRINTF("RPL: LEAF ONLY Multicast DIS will NOT reset DIO timer\n");
+#if 0
 	  /* Check if this neighbor should be added according to the policy. */
           if(rpl_icmp6_update_nbr_table(&UIP_IP_BUF->srcipaddr,
         /* Check if this neighbor should be added according to the policy. */
@@ -247,6 +248,7 @@ dis_input(void)
             PRINTF("RPL: Unicast DIS, reply to sender\n");
             dio_output(instance, &UIP_IP_BUF->srcipaddr);
           }
+#endif //0
         }
       }
       else {
@@ -263,6 +265,7 @@ dis_input(void)
 #endif /* !RPL_LEAF_ONLY */
 #endif /* RF_MODULE_ENABLED */
         } else {
+#if 0
 	  /* Check if this neighbor should be added according to the policy. */
           if(rpl_icmp6_update_nbr_table(&UIP_IP_BUF->srcipaddr,
                                       NBR_TABLE_REASON_RPL_DIS, NULL) == NULL) {
@@ -275,6 +278,7 @@ dis_input(void)
             PRINTF("RPL: Unicast DIS, reply to sender\n");
             dio_output(instance, &UIP_IP_BUF->srcipaddr);
           }
+#endif //0
 #ifdef RF_MODULE_ENABLED
         }
 #endif
@@ -723,6 +727,9 @@ dio_output(rpl_instance_t *instance, uip_ipaddr_t *uc_addr)
 #ifdef RF_MODULE_ENABLED
   }
 #endif
+
+   rpl_nwk_discovery_conf(1);
+
 #endif /* RPL_LEAF_ONLY */
 
 }
@@ -1185,6 +1192,8 @@ handle_dao_retransmission(void *ptr)
 void
 dao_output(rpl_parent_t *parent, uint8_t lifetime)
 {
+  return;
+
   /* Destination Advertisement Object */
   uip_ipaddr_t prefix;
 

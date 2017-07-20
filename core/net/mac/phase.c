@@ -44,6 +44,10 @@
 #include "net/queuebuf.h"
 #include "net/nbr-table.h"
 
+#ifdef RF_MODULE_ENABLED
+#include "RF_Module_API_Handler.h"
+#endif
+
 #if PHASE_CONF_DRIFT_CORRECT
 #define PHASE_DRIFT_CORRECT PHASE_CONF_DRIFT_CORRECT
 #else
@@ -87,6 +91,12 @@ NBR_TABLE(struct phase, nbr_phase);
 #define PRINTDEBUG(...)
 #endif
 /*---------------------------------------------------------------------------*/
+#ifdef RF_MODULE_ENABLED
+extern NodeType_t g_node_type;
+extern RPL_MOP_Type_t g_RPL_MOP_type;
+#endif
+
+/*---------------------------------------------------------------------------*/
 void
 phase_update(const linkaddr_t *neighbor, rtimer_clock_t time,
              int mac_status)
@@ -122,7 +132,10 @@ phase_update(const linkaddr_t *neighbor, rtimer_clock_t time,
   } else {
     /* No matching phase was found, so we allocate a new one. */
     if(mac_status == MAC_TX_OK && e == NULL) {
+      //@ESL 
+      if(g_node_type != NODE_6LBR) {
       e = nbr_table_add_lladdr(nbr_phase, neighbor, NBR_TABLE_REASON_MAC, NULL);
+      }
       if(e) {
         e->time = time;
 #if PHASE_DRIFT_CORRECT

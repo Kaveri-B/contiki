@@ -873,11 +873,11 @@ icmp_output()
   UIP_ICMP_BUF->icmpchksum = 0;
   UIP_ICMP_BUF->icmpchksum = ~uip_icmp6chksum();
 
-  uip_len = UIP_IPH_LEN + UIP_ICMPH_LEN + payload_len;
+  //uip_len = UIP_IPH_LEN + UIP_ICMPH_LEN + payload_len;
 
   VERBOSE_PRINTF("ROLL TM: ICMPv6 Out - %u bytes\n", payload_len);
 
-  tcpip_ipv6_output();
+  //tcpip_ipv6_output();
   ROLL_TM_STATS_ADD(icmp_out);
   return;
 }

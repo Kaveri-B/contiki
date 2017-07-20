@@ -47,7 +47,7 @@
 #include "net/ipv6/uip-icmp6.h"
 #include "contiki-default-conf.h"
 
-#define DEBUG 0
+#define DEBUG 1
 #if DEBUG
 #include <stdio.h>
 #define PRINTF(...) printf(__VA_ARGS__)
@@ -269,7 +269,6 @@ uip_icmp6_error_output(uint8_t type, uint8_t code, uint32_t param) {
 void
 uip_icmp6_send(const uip_ipaddr_t *dest, int type, int code, int payload_len)
 {
-
   UIP_IP_BUF->vtc = 0x60;
   UIP_IP_BUF->tcflow = 0;
   UIP_IP_BUF->flow = 0;

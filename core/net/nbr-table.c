@@ -40,7 +40,7 @@
 #include "lib/list.h"
 #include "net/nbr-table.h"
 
-#define DEBUG 0
+#define DEBUG DEBUG_FULL
 #if DEBUG
 #include <stdio.h>
 #include "sys/ctimer.h"
@@ -208,7 +208,10 @@ nbr_table_allocate(nbr_table_reason_t reason, void *data)
   if(key != NULL) {
     return key;
   } else {
+    PRINTF("nbr_table_allocate: memb_alloc failed\n");
+#if 0
 #ifdef NBR_TABLE_FIND_REMOVABLE
+    PRINTF("NBR_TABLE_FIND_REMOVABLE\n");
     const linkaddr_t *lladdr;
     lladdr = NBR_TABLE_FIND_REMOVABLE(reason, data);
     if(lladdr == NULL) {
@@ -230,7 +233,7 @@ nbr_table_allocate(nbr_table_reason_t reason, void *data)
       }
     }
 #endif /* NBR_TABLE_FIND_REMOVABLE */
-
+#endif //0
     if(least_used_key == NULL) {
       /* No more space, try to free a neighbor.
        * The replacement policy is the following: remove neighbor that is:
@@ -344,10 +347,12 @@ nbr_table_add_lladdr(nbr_table_t *table, const linkaddr_t *lladdr, nbr_table_rea
 
   if((index = index_from_lladdr(lladdr)) == -1) {
      /* Neighbor not yet in table, let's try to allocate one */
+     PRINTF(" Neighbor not yet in table, let's try to allocate one \n");
     key = nbr_table_allocate(reason, data);
 
     /* No space available for new entry */
     if(key == NULL) {
+      PRINTF(" No space available for new entry\n ");
       return NULL;
     }
 
@@ -359,6 +364,9 @@ nbr_table_add_lladdr(nbr_table_t *table, const linkaddr_t *lladdr, nbr_table_rea
 
     /* Set link-layer address */
     linkaddr_copy(&key->lladdr, lladdr);
+  }
+  else {
+    PRINTF(" Nbr already in table \n");
   }
 
   /* Get item in the current table */
@@ -387,6 +395,7 @@ int
 nbr_table_remove(nbr_table_t *table, void *item)
 {
   int ret = nbr_set_bit(used_map, table, item, 0);
+  PRINTF("nbr_table_remove: ret %d\n",ret);
   nbr_set_bit(locked_map, table, item, 0);
   return ret;
 }

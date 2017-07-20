@@ -11,6 +11,7 @@ endif
 
 APPS+=mbedtls_client
 APPS+=https-socket
+APPS+=tftp
 
 ifdef SERVER_REPLY
 CFLAGS+=-DSERVER_REPLY=$(SERVER_REPLY)

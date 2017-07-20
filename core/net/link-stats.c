@@ -44,6 +44,10 @@
 #define PRINTF(...)
 #endif
 
+#ifdef RF_MODULE_ENABLED
+#include "RF_Module_API_Handler.h"
+#endif
+
 /* Half time for the freshness counter, in minutes */
 #define FRESHNESS_HALF_LIFE             20
 /* Statistics are fresh if the freshness counter is FRESHNESS_TARGET or more */
@@ -80,6 +84,12 @@ struct ctimer periodic_timer;
 #else /* LINK_STATS_INIT_ETX */
 #define LINK_STATS_INIT_ETX(stats) (ETX_INIT * ETX_DIVISOR)
 #endif /* LINK_STATS_INIT_ETX */
+
+/*---------------------------------------------------------------------------*/
+#ifdef RF_MODULE_ENABLED
+extern NodeType_t g_node_type;
+extern RPL_MOP_Type_t g_RPL_MOP_type;
+#endif
 
 /*---------------------------------------------------------------------------*/
 /* Returns the neighbor's link stats */
@@ -143,7 +153,10 @@ link_stats_packet_sent(const linkaddr_t *lladdr, int status, int numtx)
   stats = nbr_table_get_from_lladdr(link_stats, lladdr);
   if(stats == NULL) {
     /* Add the neighbor */
-    stats = nbr_table_add_lladdr(link_stats, lladdr, NBR_TABLE_REASON_LINK_STATS, NULL);
+    //@ESL
+    if(g_node_type != NODE_6LBR) {
+       stats = nbr_table_add_lladdr(link_stats, lladdr, NBR_TABLE_REASON_LINK_STATS, NULL);
+    }
     if(stats != NULL) {
       stats->etx = LINK_STATS_INIT_ETX(stats);
     } else {
@@ -175,7 +188,10 @@ link_stats_input_callback(const linkaddr_t *lladdr)
   stats = nbr_table_get_from_lladdr(link_stats, lladdr);
   if(stats == NULL) {
     /* Add the neighbor */
-    stats = nbr_table_add_lladdr(link_stats, lladdr, NBR_TABLE_REASON_LINK_STATS, NULL);
+    //@ESL 
+    if(g_node_type != NODE_6LBR) {
+      stats = nbr_table_add_lladdr(link_stats, lladdr, NBR_TABLE_REASON_LINK_STATS, NULL);
+    }
     if(stats != NULL) {
       /* Initialize */
       stats->rssi = packet_rssi;

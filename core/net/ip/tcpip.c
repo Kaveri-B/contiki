@@ -116,6 +116,7 @@ enum {
 
 /*---------------------------------------------------------------------------*/
 #ifdef RF_MODULE_ENABLED
+extern NodeType_t g_node_type;
 extern RPL_MOP_Type_t g_RPL_MOP_type;
 #endif
 /*---------------------------------------------------------------------------*/
@@ -626,8 +627,13 @@ tcpip_ipv6_output(void)
 #else
           PRINTF("tcpip_ipv6_output: Destination off-link but no route\n");
 #endif /* !UIP_FALLBACK_INTERFACE */
-          uip_clear_buf();
-          return;
+          if(g_node_type == NODE_6LBR) {
+              nexthop = &UIP_IP_BUF->destipaddr;
+          }
+          else {
+            uip_clear_buf();
+            return;
+          }
         }
 
       } else {
@@ -858,6 +864,10 @@ PROCESS_THREAD(tcpip_process, ev, data)
 #if NETSTACK_CONF_WITH_IPV6 && UIP_CONF_IPV6_RPL
   rpl_init();
 #endif /* UIP_CONF_IPV6_RPL */
+  if((g_node_type == NODE_6LBR) || (g_node_type == NODE_6AP)) {
+    uip_ds6_nbr_periodic();
+  }
+
 
   while(1) {
     PROCESS_YIELD();

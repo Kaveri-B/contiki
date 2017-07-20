@@ -46,6 +46,12 @@ extern uint16_t uip_slen;
 
 #include <string.h>
 
+#define DEBUG DEBUG_NONE
+//#define DEBUG DEBUG_FULL
+
+#include "net/ip/uip-debug.h"
+
+
 /*---------------------------------------------------------------------------*/
 void
 uip_udp_packet_send(struct uip_udp_conn *c, const void *data, int len)

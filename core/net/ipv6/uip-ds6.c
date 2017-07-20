@@ -54,6 +54,10 @@
 #define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
+#ifdef RF_MODULE_ENABLED
+#include "RF_Module_API_Handler.h"
+#endif
+
 struct etimer uip_ds6_timer_periodic;                           /**< Timer for maintenance of data structures */
 
 #if UIP_CONF_ROUTER
@@ -89,6 +93,10 @@ static uip_ds6_aaddr_t *locaaddr;
 #endif /* UIP_DS6_AADDR_NB */
 static uip_ds6_prefix_t *locprefix;
 
+/*---------------------------------------------------------------------------*/
+#ifdef RF_MODULE_ENABLED
+extern NodeType_t g_node_type;
+#endif
 /*---------------------------------------------------------------------------*/
 void
 uip_ds6_init(void)
@@ -126,6 +134,10 @@ uip_ds6_init(void)
 
   uip_create_linklocal_allnodes_mcast(&loc_fipaddr);
   uip_ds6_maddr_add(&loc_fipaddr);
+  if(g_node_type == NODE_6LN) {
+    loc_fipaddr.u8[1] = 0x03;
+    uip_ds6_maddr_add(&loc_fipaddr);
+  }
 #if UIP_CONF_ROUTER
   uip_create_linklocal_allrouters_mcast(&loc_fipaddr);
   uip_ds6_maddr_add(&loc_fipaddr);
@@ -190,7 +202,9 @@ uip_ds6_periodic(void)
 #if UIP_ND6_SEND_NS
   uip_ds6_neighbor_periodic();
 #endif /* UIP_ND6_SEND_NS */
-
+  if((g_node_type == NODE_6LBR) || (g_node_type == NODE_6AP) ) {
+    uip_ds6_nbr_periodic();
+  }
 #if UIP_CONF_ROUTER && UIP_ND6_SEND_RA
   /* Periodic RA sending */
   if(stimer_expired(&uip_ds6_timer_ra) && (uip_len == 0)) {

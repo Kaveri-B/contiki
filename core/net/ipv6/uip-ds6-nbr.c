@@ -55,6 +55,10 @@
 #define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
+#ifdef RF_MODULE_ENABLED
+#include "RF_Module_API_Handler.h"
+#endif
+
 #ifdef UIP_CONF_DS6_NEIGHBOR_STATE_CHANGED
 #define NEIGHBOR_STATE_CHANGED(n) UIP_CONF_DS6_NEIGHBOR_STATE_CHANGED(n)
 void NEIGHBOR_STATE_CHANGED(uip_ds6_nbr_t *n);
@@ -71,6 +75,10 @@ void LINK_NEIGHBOR_CALLBACK(const linkaddr_t *addr, int status, int numtx);
 
 NBR_TABLE_GLOBAL(uip_ds6_nbr_t, ds6_neighbors);
 
+/*---------------------------------------------------------------------------*/
+#ifdef RF_MODULE_ENABLED
+extern NodeType_t g_node_type;
+#endif
 /*---------------------------------------------------------------------------*/
 void
 uip_ds6_neighbors_init(void)
@@ -105,11 +113,17 @@ uip_ds6_nbr_add(const uip_ipaddr_t *ipaddr, const uip_lladdr_t *lladdr,
     stimer_set(&nbr->sendns, 0);
     nbr->nscount = 0;
 #endif /* UIP_ND6_SEND_NS */
+    if((g_node_type == NODE_6LBR) || (g_node_type == NODE_6AP)){
+      //stimer_set(&nbr->reachable, RFM_UIP_ND6_REACHABLE_TIME_MILISEC / 1000);
+      nbr->reachable.start = clock_time();
+      nbr->reachable.interval = RFM_UIP_ND6_REACHABLE_TIME_MILISEC / 1000;
+    }
     PRINTF("Adding neighbor with ip addr ");
     PRINT6ADDR(ipaddr);
     PRINTF(" link addr ");
     PRINTLLADDR(lladdr);
     PRINTF(" state %u\n", state);
+    PRINTF("start: %lu, interval: %lu\n", nbr->reachable.start, nbr->reachable.interval);
     NEIGHBOR_STATE_CHANGED(nbr);
     return nbr;
   } else {
@@ -245,6 +259,27 @@ uip_ds6_link_neighbor_callback(int status, int numtx)
 #endif /* UIP_DS6_LL_NUD */
 
 }
+
+
+void uip_ds6_nbr_periodic(void)
+{
+   uip_ds6_nbr_t *nbr = nbr_table_head(ds6_neighbors);
+   while(nbr != NULL) {
+          //PRINTF(" uip_ds6_nbr_periodic\n");
+       if(clock_time() > (nbr->reachable.start + nbr->reachable.interval)) {
+          //PRINTF(" \n Remove nbr: \n");
+          //PRINT6ADDR(&nbr->ipaddr);
+          //PRINTF("\n");
+          if(g_node_type == NODE_6AP) {
+            //PRINTF(" Remove port entry\n");
+            removePortForwardEntry((uint8_t *)&nbr->ipaddr); 
+          }
+          //uip_ds6_nbr_rm(nbr);
+       }
+       nbr = nbr_table_next(ds6_neighbors, nbr);
+   }
+}
+
 #if UIP_ND6_SEND_NS
 /*---------------------------------------------------------------------------*/
 /** Periodic processing on neighbors */

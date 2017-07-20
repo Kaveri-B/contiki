@@ -71,6 +71,7 @@ void RPL_CALLBACK_PARENT_SWITCH(rpl_parent_t *old, rpl_parent_t *new);
 
 /*---------------------------------------------------------------------------*/
 #ifdef RF_MODULE_ENABLED
+extern NodeType_t g_node_type;
 extern RPL_MOP_Type_t g_RPL_MOP_type;
 #endif
 extern rpl_of_t rpl_of0, rpl_mrhof;
@@ -386,7 +387,10 @@ rpl_set_root(uint8_t instance_id, uip_ipaddr_t *dag_id)
     /*Stop all the timers related with DAO transmission as we are becoming the root.*/
 #ifdef RF_MODULE_ENABLED
     ctimer_stop(&instance->dao_timer);
+#if RPL_WITH_DAO_ACK
     ctimer_stop(&instance->dao_retransmit_timer);
+#endif
+
 #endif
   }
 
@@ -1514,6 +1518,10 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
     } else {
       PRINTF("RPL: Not joining since could not add parent\n");
     }
+#ifdef RF_MODULE_ENABLED 
+  if(g_node_type == NODE_6LN) 
+      rpl_nwk_discovery_conf(1);
+#endif
     return;
   }
 
@@ -1649,6 +1657,10 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
     uip_ds6_defrt_add(from, RPL_DEFAULT_ROUTE_INFINITE_LIFETIME ? 0 : RPL_LIFETIME(instance, instance->default_lifetime));
   }
   p->dtsn = dio->dtsn;
+#ifdef RF_MODULE_ENABLED 
+  if(g_node_type == NODE_6LN) 
+      rpl_nwk_discovery_conf(1);
+#endif
 }
 /*---------------------------------------------------------------------------*/
 /** @} */

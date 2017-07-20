@@ -115,6 +115,7 @@ struct uip_stats uip_stat;
 /*---------------------------------------------------------------------------*/
 #ifdef RF_MODULE_ENABLED
 extern RPL_MOP_Type_t g_RPL_MOP_type;
+extern NodeType_t g_node_type;
 #endif
 /*---------------------------------------------------------------------------*/
 /**
@@ -462,7 +463,9 @@ uip_init(void)
 #endif /* UIP_UDP */
 
 #if UIP_IPV6_MULTICAST
-  UIP_MCAST6.init();
+  if(g_node_type != NODE_6LN) {
+    UIP_MCAST6.init();
+  }
 #endif
 }
 /*---------------------------------------------------------------------------*/
@@ -900,6 +903,7 @@ ext_hdr_options_process(void)
        */
 #if UIP_CONF_IPV6_RPL
       PRINTF("Processing RPL option\n");
+      PRINTF("********************** rpl_verify_hbh_header ************\n"); //@TBD
       if(!rpl_verify_hbh_header(uip_ext_opt_offset)) {
         PRINTF("RPL Option Error: Dropping Packet\n");
         return 1;
@@ -1210,12 +1214,15 @@ uip_process(uint8_t flag)
    * expect UIP_BUF to be unmodified
    */
 #if UIP_IPV6_MULTICAST
-  if(uip_is_addr_mcast_routable(&UIP_IP_BUF->destipaddr)) {
+  if((g_node_type != NODE_6LN) && uip_is_addr_mcast_routable(&UIP_IP_BUF->destipaddr)) {
+    PRINTF("%s: mcast_addr routable \n",__func__);
     if(UIP_MCAST6.in() == UIP_MCAST6_ACCEPT) {
       /* Deliver up the stack */
+      PRINTF("%s: Deliver up the stack \n",__func__);
       goto process;
     } else {
       /* Don't deliver up the stack */
+      PRINTF("%s: Don't deliver up the stack \n",__func__);
       goto drop;
     }
   }
@@ -1535,6 +1542,7 @@ uip_process(uint8_t flag)
        connection is bound to a remote port. Finally, if the
        connection is bound to a remote IP address, the source IP
        address of the packet is checked. */
+      //PRINTF("UIP_UDP_BUF->destport %x, uip_udp_conn->lport %x, isripaddr_unsp %d \n", UIP_UDP_BUF->destport, uip_udp_conn->lport , uip_is_addr_unspecified(&uip_udp_conn->ripaddr));
     if(uip_udp_conn->lport != 0 &&
        UIP_UDP_BUF->destport == uip_udp_conn->lport &&
        (uip_udp_conn->rport == 0 ||
